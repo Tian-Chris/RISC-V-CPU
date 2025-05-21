@@ -3,9 +3,9 @@
 // Company: 
 // Engineer: Chris Tian
 // 
-// Create Date: 05/20/2025 10:26:35 AM
+// Create Date: 05/21/2025 12:00:38 PM
 // Design Name: 
-// Module Name: PC
+// Module Name: dmem
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -20,21 +20,28 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module PC(
-    input clk,
-    input wire [31:0] PC_ALU_input,
-    input wire PC_select,
-    output reg [31:0] PC
+module dmem(
+    input wire clk,
+    input wire RW, //1 = write 0 = read
+    input wire [31:0] address,
+    input wire [31:0] wdata,
+    output reg [31:0] rdata
     );
     
+    reg [31:0] dmem [127:0];
+
     initial begin
-        PC <= 0;
+        dmem[0] <= 0;
+        rdata <= 0;
     end
+    
     always @(posedge clk)
-        begin
-            if(PC_select)
-                PC <= PC_ALU_input;
-            else
-                PC <= PC + 4;
+    begin
+        if(RW) begin
+            dmem[address[31:2]] <= wdata;
+            rdata <= rdata;
         end
+        else
+            rdata <= dmem[address[31:2]];
+    end
 endmodule

@@ -25,7 +25,7 @@ module register(
     input wire write_enable,
     input wire [4:0] rd, r1, r2,
     input wire [31:0] wdata,
-    output wire [31:0] rdata1, rdata2
+    output reg [31:0] rdata1, rdata2
     );
     
     //32 registers
@@ -38,11 +38,9 @@ module register(
     
     //reads wdata into the destination register
     always @(posedge clk) begin
+        rdata1 <= RegData[r1];
+        rdata2 <= RegData[r2];
         if(write_enable && rd != 0 )
             RegData[rd] <= wdata;
     end 
-    
-    //reads what is in the register r1 and r2
-    assign rdata1 = RegData[r1];
-    assign rdata2 = RegData[r2];
 endmodule

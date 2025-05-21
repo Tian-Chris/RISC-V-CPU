@@ -23,7 +23,7 @@
 module ALU(
     input wire [31:0] a, b,
     input wire [3:0] operation,
-    output reg [31:0] result
+    output reg [31:0] result //consider swapping to wire
     );
     
     //combinational
@@ -40,7 +40,6 @@ module ALU(
             4'b0111: result = (a < b);  //less than
             4'b1000: result = (a < b) || a[31] & ~b[31] || (~a[31] & ~b[31] & a < b) || (a[31] & b[31] & a > b);   //less than signed
             default: result = 32'hXXXXXXXX;
-            
         endcase
     end
 endmodule
