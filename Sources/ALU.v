@@ -21,11 +21,19 @@
 
 
 module ALU(
-    input wire [31:0] a, b,
+    input wire [31:0] rdata1, rdata2, PC, imm,
+    input wire ASel, BSel,
     input wire [3:0] operation,
     output reg [31:0] result //consider swapping to wire
     );
+    wire [31:0] a, b;
+    wire signed [31:0] a_s, b_s; //signed
     
+    assign a   = ASel ? PC  : rdata1;
+    assign b   = BSel ? imm : rdata2;
+    assign a_s = $signed(a);
+    assign b_s = $signed(b);
+
     //combinational
     always @(*) 
     begin
@@ -36,9 +44,9 @@ module ALU(
             4'b0011: result = a | b;   //or
             4'b0100: result = a << b;   //shift left
             4'b0101: result = a >> b;   //shift right
-            4'b0110: result = a >>> b;  //shift right arithmetic
+            4'b0110: result = a_s >>> b_s;  //shift right arithmetic
             4'b0111: result = (a < b);  //less than
-            4'b1000: result = (a < b) || a[31] & ~b[31] || (~a[31] & ~b[31] & a < b) || (a[31] & b[31] & a > b);   //less than signed
+            4'b1000: result = (a_s < b_s);   //less than signed
             default: result = 32'hXXXXXXXX;
         endcase
     end
