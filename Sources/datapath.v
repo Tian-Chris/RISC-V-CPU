@@ -38,7 +38,7 @@ module datapath(
     );
     
     wire [8:0] nbi; //nine_bit_instruction
-    reg [14:0] control; //14 bit control
+    reg [13:0] control; //14 bit control
     
     //           funct7        funct3          oppcode (without last 2 bits)
     assign nbi = {instruct[30], instruct[14:12], instruct[6:2]};
@@ -47,7 +47,8 @@ module datapath(
     //PCSel is added later
     always @(*) begin //could also be clocked
         funct3 = instruct[14:12];
-        case(nbi)
+        
+        casez(nbi)
         //Control: PCSel_RegWEn_immSel_BranchSign_ALUBSel_ALUASel_ALUSel_dmemRW_RegWBSel
         //Control:    1     1     3       1          1      1       4       1      2
     
@@ -72,10 +73,10 @@ module datapath(
             //oppcode: 0010011 -> 00100
             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
             //1(write)  000 (I)  X           0 (A)    1 (imm)  Opperation  0 (Read)  01 (ALU)
-            9'b0_000_00100: control = 14'b1_000_001_0000_0_01; //addi note no subi exists
-            9'b0_111_00100: control = 14'b1_000_001_0010_0_01; //andi
-            9'b0_110_00100: control = 14'b1_000_001_0011_0_01; //ori
-            9'b0_100_00100: control = 14'b1_000_001_0100_0_01; //xori
+            9'b?_000_00100: control = 14'b1_000_001_0000_0_01; //addi note no subi exists
+            9'b?_111_00100: control = 14'b1_000_001_0010_0_01; //andi
+            9'b?_110_00100: control = 14'b1_000_001_0011_0_01; //ori
+            9'b?_100_00100: control = 14'b1_000_001_0100_0_01; //xori
             
             //I*-type start
             9'b0_001_01100: control = 14'b1_001_001_0101_0_01; //sli
@@ -91,19 +92,19 @@ module datapath(
             //oppcode: 0000011 -> 00000
             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
             //1(write)  000(i)   X           0 (A)    1 (imm)  ADD         0 (Read)  00 (dmem)
-            9'b0_000_00000: control = 14'b1_000_001_000_0_00; //dmem handles size //lb
-            9'b0_100_00000: control = 14'b1_000_001_000_0_00; //lb unsigned
-            9'b0_001_00000: control = 14'b1_000_001_000_0_00; //lh
-            9'b0_101_00000: control = 14'b1_000_001_000_0_00; //lhu
-            9'b0_001_00000: control = 14'b1_000_001_000_0_00; //lw
+            9'b0_000_00000: control = 14'b1_000_001_0000_0_00; //dmem handles size //lb
+            9'b0_100_00000: control = 14'b1_000_001_0000_0_00; //lb unsigned
+            9'b0_001_00000: control = 14'b1_000_001_0000_0_00; //lh
+            9'b0_101_00000: control = 14'b1_000_001_0000_0_00; //lhu
+            9'b0_001_00000: control = 14'b1_000_001_0000_0_00; //lw
             
             // S-type
             //oppcode: 0100011 -> 01000
             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
             //0(read)   010(s)   X           0 (A)    1 (imm)  ADD         1 (Write) XX
-            9'b0_000_01000: control = 14'b0_010_011_000_000; //store byte //dmem handles size
-            9'b0_001_01000: control = 14'b0_010_011_000_000; //store halfword //dmem handles size
-            9'b0_010_01000: control = 14'b0_010_011_000_000; //store word //dmem handles size
+            9'b?_000_01000: control = 14'b0_010_011_0000_100; //store byte //dmem handles size
+            9'b?_001_01000: control = 14'b0_010_011_0000_100; //store halfword 
+            9'b?_010_01000: control = 14'b0_010_011_0000_100; //store word
             
         //== Control==
 
@@ -111,36 +112,36 @@ module datapath(
             //oppcode: 1100011 -> 11000
             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
             //0(read)   011(s)   depends     1 (PC)   1 (imm)  ADD         0 (Read)  XX
-            9'b0_000_11000: control = 14'b0_011_011_000_000; //beq PC bit handled elsewhere
-            9'b0_001_11000: control = 14'b0_011_011_000_000; //bne
-            9'b0_100_11000: control = 14'b0_011_011_000_000; //blt
-            9'b0_110_11000: control = 14'b0_011_111_000_000; //bltu
-            9'b0_101_11000: control = 14'b0_011_011_000_000; //bge
-            9'b0_111_11000: control = 14'b0_011_111_000_000; //bgeu
+            9'b?_000_11000: control = 14'b0_011_011_0000_000; //beq PC bit handled elsewhere
+            9'b?_001_11000: control = 14'b0_011_011_0000_000; //bne
+            9'b?_100_11000: control = 14'b0_011_011_0000_000; //blt
+            9'b?_110_11000: control = 14'b0_011_111_0000_000; //bltu
+            9'b?_101_11000: control = 14'b0_011_011_0000_000; //bge
+            9'b?_111_11000: control = 14'b0_011_111_0000_000; //bgeu
             
             // J-type
             //oppcode: 1101111 -> 11011
             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
             //1(write)  101(j)   X           1 (PC)   1 (imm)  ADD         0 (Read)  11 (PC + 4)
-            9'b0_000_11011: control = 14'b1_101_011_000_011; //jal
+            9'b?_???_11011: control = 14'b1_101_011_0000_011; //jal
             
             //I-type
             //oppcode 1100111 -> 11001
             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
             //1(write)  000(i)   X           0 (a)    1 (imm)  ADD         0 (Read)  11 (PC + 4)
-            9'b0_000_11001: control = 14'b1_000_001_000_011; //jalr
+            9'b?_000_11001: control = 14'b1_000_001_0000_011; //jalr
             
         //== Other==
             // U-type
             // 0010111-> 00101
             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
             //1(write)  111(U)   X           1 (PC)   1 (imm)  ADD         0 (Read)  01 (ALU)
-            9'b0_000_00101: control = 14'b1_111_011_000_001; //aiupc
+            9'b?_???_00101: control = 14'b1_111_011_0000_001; //aiupc
             
             //LUI not sure how to implement leaving blank for now
             
             //pretty sure this does nothing since REGW is 0 and dmemW is 0 so it should just do nothing
-            default: control = 14'b0_000_000_000;
+            default: control = 14'b0_000_0000_000;
         endcase
         if (nbi[4:0] == 5'b11011 || nbi[4:0] == 5'b11001) begin
             PCSel = 1; // JAL or JALR
@@ -157,5 +158,15 @@ module datapath(
         end else begin
             PCSel = 0;
         end
+        
+        Reg_WEn       = control[13];
+        imm_gen_sel   = control[12:10];
+        branch_signed = control[9];
+        ALU_ASel      = control[8];
+        ALU_BSel      = control[7];
+        ALU_Sel       = control[6:3];
+        dmemRW        = control[2];
+        Reg_WBSel     = control[1:0];
+        
     end
 endmodule
