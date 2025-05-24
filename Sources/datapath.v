@@ -96,15 +96,15 @@ module datapath(
             9'b0_100_00000: control = 14'b1_000_001_0000_0_00; //lb unsigned
             9'b0_001_00000: control = 14'b1_000_001_0000_0_00; //lh
             9'b0_101_00000: control = 14'b1_000_001_0000_0_00; //lhu
-            9'b0_001_00000: control = 14'b1_000_001_0000_0_00; //lw
+            9'b0_010_00000: control = 14'b1_000_001_0000_0_00; //lw
             
             // S-type
             //oppcode: 0100011 -> 01000
             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
             //0(read)   010(s)   X           0 (A)    1 (imm)  ADD         1 (Write) XX
-            9'b?_000_01000: control = 14'b0_010_011_0000_100; //store byte //dmem handles size
-            9'b?_001_01000: control = 14'b0_010_011_0000_100; //store halfword 
-            9'b?_010_01000: control = 14'b0_010_011_0000_100; //store word
+            9'b?_000_01000: control = 14'b0_010_001_0000_100; //store byte //dmem handles size
+            9'b?_001_01000: control = 14'b0_010_001_0000_100; //store halfword 
+            9'b?_010_01000: control = 14'b0_010_001_0000_100; //store word
             
         //== Control==
 

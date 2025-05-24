@@ -28,13 +28,17 @@ module dmem(
     input wire [31:0] wdata,
     output reg [31:0] rdata,
     output wire exception,
-    output wire [3:0] exception_code
+    output wire [3:0] exception_code,
+    
+    //debug
+    output wire [31:0] dmem_out
     );
     
     reg [31:0] dmem [127:0];
     initial begin
-        dmem[0] <= 0;
-        rdata <= 0;
+        dmem[0] = 32'hDEADBEEF;
+        dmem[1] = 32'h12345678;
+        dmem[2] = 32'hCAFEBABE;
     end
     
     assign exception = ((address[0] || address[1]) && funct3 == 3'b010 ) || //word
@@ -43,7 +47,6 @@ module dmem(
     assign exception_code = RW; // read wrong 0, write wrong 1
 
     always @(posedge clk) begin        
-        if(!exception) begin
         if (RW) begin
             // write
             case(funct3)
@@ -65,43 +68,46 @@ module dmem(
                     dmem[address[31:2]] <= wdata;
                 end
             endcase
-        end else begin
+        end 
+    end
+    always @(*) begin
+        if(!RW) begin
             // read
             case(funct3)
                 3'b000: begin // lb  sign-extend
                     case(address[1:0])
-                        2'b00: rdata <= {{24{dmem[address[31:2]][7]}},   dmem[address[31:2]][7:0]};
-                        2'b01: rdata <= {{24{dmem[address[31:2]][15]}},  dmem[address[31:2]][15:8]};
-                        2'b10: rdata <= {{24{dmem[address[31:2]][23]}},  dmem[address[31:2]][23:16]};
-                        2'b11: rdata <= {{24{dmem[address[31:2]][31]}},  dmem[address[31:2]][31:24]};
+                        2'b00: rdata = {{24{dmem[address[31:2]][7]}},   dmem[address[31:2]][7:0]};
+                        2'b01: rdata = {{24{dmem[address[31:2]][15]}},  dmem[address[31:2]][15:8]};
+                        2'b10: rdata = {{24{dmem[address[31:2]][23]}},  dmem[address[31:2]][23:16]};
+                        2'b11: rdata = {{24{dmem[address[31:2]][31]}},  dmem[address[31:2]][31:24]};
                     endcase
                 end
                 3'b100: begin // lbu zero-extend
                     case(address[1:0])
-                        2'b00: rdata <= {{24{1'b0}}, dmem[address[31:2]][7:0]};
-                        2'b01: rdata <= {{24{1'b0}}, dmem[address[31:2]][15:8]};
-                        2'b10: rdata <= {{24{1'b0}}, dmem[address[31:2]][23:16]};
-                        2'b11: rdata <= {{24{1'b0}}, dmem[address[31:2]][31:24]};
+                        2'b00: rdata = {{24{1'b0}}, dmem[address[31:2]][7:0]};
+                        2'b01: rdata = {{24{1'b0}}, dmem[address[31:2]][15:8]};
+                        2'b10: rdata = {{24{1'b0}}, dmem[address[31:2]][23:16]};
+                        2'b11: rdata = {{24{1'b0}}, dmem[address[31:2]][31:24]};
                     endcase
                 end
                 3'b001: begin // lh sign-extend
                     case(address[1])
-                        1'b0: rdata <= {{16{dmem[address[31:2]][15]}}, dmem[address[31:2]][15:0]};
-                        1'b1: rdata <= {{16{dmem[address[31:2]][31]}}, dmem[address[31:2]][31:16]};
+                        1'b0: rdata = {{16{dmem[address[31:2]][15]}}, dmem[address[31:2]][15:0]};
+                        1'b1: rdata = {{16{dmem[address[31:2]][31]}}, dmem[address[31:2]][31:16]};
                     endcase
                 end
                 3'b101: begin // lhu zero-extend
                     case(address[1])
-                        1'b0: rdata <= {{16{1'b0}}, dmem[address[31:2]][15:0]};
-                        1'b1: rdata <= {{16{1'b0}}, dmem[address[31:2]][31:16]};
+                        1'b0: rdata = {{16{1'b0}}, dmem[address[31:2]][15:0]};
+                        1'b1: rdata = {{16{1'b0}}, dmem[address[31:2]][31:16]};
                     endcase
                 end
                 3'b010: begin // lw
-                    rdata <= dmem[address[31:2]];
+                    rdata = dmem[address[31:2]];
                 end
-                default: rdata <= 32'b0;
+                default: rdata = 32'b0;
             endcase
+            end
         end
-        end
-    end
+    assign dmem_out = rdata;
 endmodule
