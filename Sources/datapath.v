@@ -66,8 +66,8 @@ module datapath(
             9'b0_001_01100: control = 14'b1_000_000_0101_0_01; //sl
             9'b0_101_01100: control = 14'b1_000_000_0110_0_01; //sr
             9'b1_101_01100: control = 14'b1_000_000_0111_0_01; //sra
-            9'b0_010_01100: control = 14'b1_000_000_1000_0_01; //slt
-            9'b0_011_01100: control = 14'b1_000_000_1001_0_01; //sltsigned
+            9'b0_010_01100: control = 14'b1_000_000_1001_0_01; //slt
+            9'b0_011_01100: control = 14'b1_000_000_1000_0_01; //sltu
             
             //== I-type ==
             //oppcode: 0010011 -> 00100
@@ -79,12 +79,12 @@ module datapath(
             9'b?_100_00100: control = 14'b1_000_001_0100_0_01; //xori
             
             //I*-type start
-            9'b0_001_01100: control = 14'b1_001_001_0101_0_01; //sli
-            9'b0_101_01100: control = 14'b1_001_001_0110_0_01; //sri
-            9'b1_101_01100: control = 14'b1_001_001_0111_0_01; //srai
+            9'b0_001_00100: control = 14'b1_001_001_0101_0_01; //sli
+            9'b0_101_00100: control = 14'b1_001_001_0110_0_01; //sri
+            9'b1_101_00100: control = 14'b1_001_001_0111_0_01; //srai
             
-            9'b0_010_01100: control = 14'b1_000_001_1000_0_01; //slti
-            9'b0_011_01100: control = 14'b1_000_001_1001_0_01; //sltisigned
+            9'b?_010_00100: control = 14'b1_000_001_1001_0_01; //slti
+            9'b?_011_00100: control = 14'b1_000_001_1000_0_01; //sltiu
             
         //== Memory==
                     
@@ -135,9 +135,11 @@ module datapath(
             // U-type
             // 0010111-> 00101
             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
-            //1(write)  111(U)   X           1 (PC)   1 (imm)  ADD         0 (Read)  01 (ALU)
-            9'b?_???_00101: control = 14'b1_111_011_0000_001; //aiupc
+            //1(write)  100(U)   X           1 (PC)   1 (imm)  ADD         0 (Read)  01 (ALU)
+            9'b?_???_00101: control = 14'b1_100_011_0000_001; //aiupc
             
+            9'b?_???_01101: control = 14'b1_100_111_1011_001; // LUI
+
             //LUI not sure how to implement leaving blank for now
             
             //pretty sure this does nothing since REGW is 0 and dmemW is 0 so it should just do nothing

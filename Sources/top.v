@@ -36,7 +36,10 @@ module cpu_top (
   output wire PCSel,
   
    //output reg
-   output wire [31:0] Out0, Out1, Out2, Out3, Out4, dmem_out
+   output wire [31:0] Out0, Out1, Out2, Out3, Out4, Out5, Out6, Out7, Out8, Out9, 
+                      Out10, Out11, Out12, Out13, Out14, Out15, Out16, Out17, Out18,
+                      Out19, Out20, Out21, Out22, Out23, Out24, Out25, Out26, Out27,
+                      Out28, Out29, Out30, Out31, dmem_out
    );
 
   wire [4:0] rs1, rs2, rd;
@@ -99,11 +102,16 @@ module cpu_top (
     .dmem_out(dmem_out),
     .rdata1(rdata1),
     .rdata2(rdata2),
-    .Out0(Out0),
-    .Out1(Out1),
-    .Out2(Out2),
-    .Out3(Out3),
-    .Out4(Out4)
+    .Out0(Out0), .Out1(Out1), .Out2(Out2), .Out3(Out3), 
+    .Out4(Out4), .Out5(Out5), .Out6(Out6), .Out7(Out7), 
+    .Out8(Out8), .Out9(Out9), .Out10(Out10), .Out11(Out11), 
+    .Out12(Out12), .Out13(Out13), .Out14(Out14), .Out15(Out15), 
+    .Out16(Out16), .Out17(Out17), .Out18(Out18), .Out19(Out19), 
+    .Out20(Out20), .Out21(Out21), .Out22(Out22), .Out23(Out23), 
+    .Out24(Out24), .Out25(Out25), .Out26(Out26), .Out27(Out27), 
+    .Out28(Out28), .Out29(Out29), .Out30(Out30), .Out31(Out31)
+    
+    
   );
 
   // ALU

@@ -30,7 +30,7 @@ module imem( //swap this to wire
     reg [31:0] inst_mem [127:0];
     
     initial begin
-        $readmemh("test.mem", inst_mem);
+        $readmemh("U:/Documents/RISC-V CPU/Risc.sim/sim_1/behav/xsim/test/test.mem", inst_mem);
     end
     
     always @(*)

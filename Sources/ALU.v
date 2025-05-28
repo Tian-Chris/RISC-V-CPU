@@ -48,6 +48,8 @@ module ALU(
             4'b0111: result = a_s >>> b_s; //shift right arithmetic
             4'b1000: result = (a < b);     //less than
             4'b1001: result = (a_s < b_s); //less than signed
+            4'b1010: result = a;           //pass a
+            4'b1011: result = b;           //pass b
             default: result = 32'hXXXXXXXX;
         endcase
     end
