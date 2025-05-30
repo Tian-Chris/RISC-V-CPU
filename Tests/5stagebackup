@@ -21,10 +21,10 @@
 
 
 module datapath(
-    input wire clk,
-    input wire [31:0] instruct, //ID
+    input wire [31:0] instruct,
     input wire brEq,
     input wire brLt,
+    
     output reg [2:0] funct3,
     output reg PCSel,
     output reg Reg_WEn, 
@@ -37,43 +37,19 @@ module datapath(
     output reg [1:0] Reg_WBSel // 0 = dmem, 1 = alu, 2 = PC+4
     );
     
-    wire [8:0] nbiID; //nine_bit_instruction
-    wire [8:0] nbiEX; //nine_bit_instruction
-    wire [8:0] nbiMEM; //nine_bit_instruction
-    wire [8:0] nbiWB; //nine_bit_instruction
-
+    wire [8:0] nbi; //nine_bit_instruction
+    reg [13:0] control; //14 bit control
     reg [6:0] exControl;
-    reg [31:0] instructEX;
-    reg [31:0] instructMEM;
-    reg [31:0] instructWB;
-    reg brEqMEM;
-    reg brLtMEM;
+    
     //           funct7        funct3          oppcode (without last 2 bits)
-    assign nbiID = {instruct[30], instruct[14:12], instruct[6:2]};
-    assign nbiEX = {instructEX[30], instructEX[14:12], instructEX[6:2]};
-    assign nbiMEM = {instructMEM[30], instructMEM[14:12], instructMEM[6:2]};
-    assign nbiWB = {instructWB[30], instructWB[14:12], instructWB[6:2]};
-
-    //ex
-    always @(posedge clk) begin
-        instructEX <= instruct;
-    end
-    //mem
-    always @(posedge clk) begin
-        instructMEM <= instructEX;
-        brEqMEM <= brEq;
-        brLtMEM <= brLt;
-    end
-    //wb
-    always @(posedge clk) begin
-        instructWB <= instructMEM;
-    end
-
+    assign nbi = {instruct[30], instruct[14:12], instruct[6:2]};
+    
+    
     always @(*) begin
         //======
         //  ID
         //======
-        casez(nbiID)
+        casez(nbi)
         //==Arithmetic==
             //==R-type==
             //oppcode: 0110011 -> 01100 || immSel XXX(000 (i))
@@ -127,7 +103,7 @@ module datapath(
         //======
         //  Ex
         //======
-        casez(nbiEX)
+        casez(nbi)
         //==Arithmetic==
             //==R-type==
             //oppcode: 0110011 -> 01100
@@ -218,14 +194,14 @@ module datapath(
         //======
         // MEM
         //======
-        casez(nbiMEM)
+        casez(nbi)
             9'b?_???_01000: dmemRW = 1'b1; //stores
             default: dmemRW = 1'b0;
         endcase
-        funct3 = instructMEM[14:12];
-        if (nbiMEM[4:0] == 5'b11011 || nbiMEM[4:0] == 5'b11001) begin
+        funct3 = instruct[14:12];
+        if (nbi[4:0] == 5'b11011 || nbi[4:0] == 5'b11001) begin
             PCSel = 1; // JAL or JALR
-        end else if (nbiMEM[4:0] == 5'b11000) begin
+        end else if (nbi[4:0] == 5'b11000) begin
             case (funct3)
                 3'b000: PCSel = brEq;
                 3'b001: PCSel = !brEq;
@@ -241,7 +217,7 @@ module datapath(
         //=====
         // WB
         //=====
-            casez(nbiWB)
+            casez(nbi)
             //==Arithmetic==
                 //== R-type ==
                 9'b?_???_01100: Reg_WEn = 1'b1; //all arith
@@ -266,7 +242,7 @@ module datapath(
                 default: Reg_WEn = 1'b0;
             endcase
             
-            casez(nbiWB)
+            casez(nbi)
             //==Arithmetic==
                 //== R-type ==
                 9'b?_???_01100: Reg_WBSel = 2'b01; //all arith

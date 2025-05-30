@@ -22,6 +22,7 @@
 module datapath_tb;
 
     // Inputs
+    reg clk;
     reg [31:0] instruct;
     reg brEq;
     reg brLt;
@@ -40,6 +41,7 @@ module datapath_tb;
 
     // Instantiate the Unit Under Test (UUT)
     datapath uut (
+        .clk(clk),
         .instruct(instruct),
         .brEq(brEq),
         .brLt(brLt),
@@ -87,9 +89,13 @@ module datapath_tb;
         $display("==============================\n");
     end
     endtask
-
+    
+    initial clk = 0;
+    always #5 clk = ~clk;
 
     initial begin
+        // Clock generation
+        
         $display("Starting datapath testbench...");
         brEq = 0;
         brLt = 0;
@@ -97,32 +103,32 @@ module datapath_tb;
         // R-type: add x1, x2, x3
         // opcode = 0110011, funct3 = 000, funct7 = 0000000
         instruct = 32'b0000000_00011_00010_000_00001_0110011;
-        #10 display_outputs;
+        #50 display_outputs;
 
         // I-type: addi x1, x2, 5
         instruct = 32'b000000000101_00010_000_00001_0010011;
-        #10 display_outputs;
+        #50 display_outputs;
 
         // S-type: sw x1, 0(x2)
         instruct = 32'b0000000_00001_00010_010_00000_0100011;
-        #10 display_outputs;
+        #50 display_outputs;
 
         // B-type: beq x1, x2, label
         instruct = 32'b0000000_00010_00001_000_00000_1100011;
         brEq = 1; // set condition true
-        #10 display_outputs;
+        #50 display_outputs;
 
         // J-type: jal x1, offset
         instruct = 32'b00000000000100000000_00001_1101111;
-        #10 display_outputs;
+        #50 display_outputs;
 
         // I-type: jalr x1, 0(x2)
         instruct = 32'b000000000000_00010_000_00001_1100111;
-        #10 display_outputs;
+        #50 display_outputs;
 
         // U-type: auipc x1, 0x1000
         instruct = 32'b000100000000_00001_0010111;
-        #10 display_outputs;
+        #50 display_outputs;
 
         $display("Testbench finished.");
         $stop;
