@@ -39,7 +39,12 @@ module datapath(
     output reg [1:0] Reg_WBSel, // 0 = dmem, 1 = alu, 2 = PC+4
     output reg [1:0] forwardA,
     output reg [1:0] forwardB,
+    output reg [1:0] forwardDmem,
     output wire IDmemRead,
+    output wire Reg_WEnMEMo,
+    output wire Reg_WEnWBo,
+    output wire [4:0] rs1_EXo,
+    output wire [4:0] rs2_EXo,
     
         // load hazard detection
     output reg [1:0] Reg_WBSelID,
@@ -65,20 +70,34 @@ module datapath(
     reg Reg_WEnEX;
     reg Reg_WEnMEM;
     reg Reg_WEnWB;
-
+    assign Reg_WEnMEMo = Reg_WEnMEM;
+    assign Reg_WEnWBo = Reg_WEnWB;
+    assign rs1_EXo = rs1_EX;
+    assign rs2_EXo = rs2_EX;
+    reg dmemRWEX;
+    
     always @(*) begin
         forwardA = 2'b00;
         forwardB = 2'b00;
+        forwardDmem = 2'b00;
     
         if (Reg_WEnMEM && MEMrd != 0 && MEMrd == rs1_EX)
             forwardA = 2'b10;
         else if (Reg_WEnWB && WBrd != 0 && WBrd == rs1_EX)
             forwardA = 2'b01;
     
-        if (Reg_WEnMEM && MEMrd != 0 && MEMrd == rs2_EX)
-            forwardB = 2'b10;
-        else if (Reg_WEnWB && WBrd != 0 && WBrd == rs2_EX)
-            forwardB = 2'b01;
+        if(dmemRWEX == 1) begin
+            if (Reg_WEnMEM && MEMrd != 0 && MEMrd == rs2_EX)
+                forwardDmem = 2'b10;
+            else if (Reg_WEnWB && WBrd != 0 && WBrd == rs2_EX)
+                forwardDmem = 2'b01;
+        end
+        else begin
+            if (Reg_WEnMEM && MEMrd != 0 && MEMrd == rs2_EX)
+                forwardB = 2'b10;
+            else if (Reg_WEnWB && WBrd != 0 && WBrd == rs2_EX)
+                forwardB = 2'b01;
+        end
     end
     
     initial begin
@@ -319,6 +338,10 @@ module datapath(
         casez(nbiMEM)
             9'b?_???_01000: dmemRW = 1'b1; //stores
             default: dmemRW = 1'b0;
+        endcase
+        casez(nbiEX)
+            9'b?_???_01000: dmemRWEX = 1'b1; //stores
+            default: dmemRWEX = 1'b0;
         endcase
         funct3 = instructMEM[14:12];
         if (nbiMEM[4:0] == 5'b11011 || nbiMEM[4:0] == 5'b11001) begin

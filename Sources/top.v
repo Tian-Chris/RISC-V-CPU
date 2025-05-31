@@ -37,6 +37,20 @@ module cpu_top (
   output wire stall,
   output wire [1:0] Reg_WBSelID,
   output wire [1:0] Reg_WBSelEX,
+  output wire [31:0] MEMrdata2O,
+  output wire [31:0] dmempreo,
+  output wire [31:0] forwardAo,
+  output wire [31:0] forwardBo,
+  output wire [31:0] MEMAluo,
+  output wire [31:0] wdatao,
+  output wire Reg_WEnMEMo,
+  output wire Reg_WEnWBo,
+  output wire [4:0] rs1_EXo,
+  output wire [4:0] rs2_EXo,
+  output wire [4:0] MEMrdo,
+  output wire [4:0] WBrdo,
+
+
   
    //output reg
    output wire [31:0] Out0, Out1, Out2, Out3, Out4, Out5, Out6, Out7, Out8, Out9, 
@@ -49,7 +63,7 @@ module cpu_top (
     wire branch_signed, ALU_BSel, ALU_ASel, dmemRW;
     wire [2:0] funct3, imm_gen_sel;
     wire [3:0] ALU_Sel;
-    wire [1:0] Reg_WBSel, forwardA, forwardB;
+    wire [1:0] Reg_WBSel, forwardA, forwardB, forwardDmem;
 
     //IF Stage Reg
     reg [31:0] IDinstruct;
@@ -79,7 +93,8 @@ module cpu_top (
     reg [31:0] MEMAlu;
     reg [31:0] MEMrdata2;
     reg [31:0] MEMPC;
-    reg [4:0] MEMrd;
+    reg [4:0]  MEMrd;
+    assign MEMrdata2O = MEMrdata2;
         
   // Program Counter
   PC PC (
@@ -145,10 +160,17 @@ module cpu_top (
     .WBrd(WBrd),
     .forwardA(forwardA),
     .forwardB(forwardB),
+    .forwardDmem(forwardDmem),
     .Reg_WBSelID(Reg_WBSelID),
     .Reg_WBSelEX(Reg_WBSelEX),
-    .IDmemRead(IDmemRead)
+    .IDmemRead(IDmemRead),
+    .Reg_WEnMEMo(Reg_WEnMEMo),
+    .Reg_WEnWBo(Reg_WEnWBo),
+    .rs1_EXo(rs1_EXo),
+    .rs2_EXo(rs2_EXo)
   );    
+  assign MEMrdo = MEMrd;
+  assign WBrdo = WBrd;
 
   // Register File
   register RF (
@@ -220,14 +242,28 @@ module cpu_top (
     .equal(brEq),
     .less_than(brLt)
   );
-
+  
+    //forwarding into dmem
+    reg [31:0] DMEMPreClockData;
+    reg [31:0] wdata;
+    always @(*) begin
+        wdata = (Reg_WBSel == 2'b00) ? WBdmem : 
+                (Reg_WBSel == 2'b01) ? WBAlu : WBPC + 4;
+        DMEMPreClockData = forwardDmem[1] ? MEMAlu : (forwardDmem[0] ? wdata : EXrdata2);
+    end
+    
     always @(posedge clk) begin
         MEMinstruct <= EXinstruct;
         MEMPC <= EXPC;
-        MEMrdata2 <= EXrdata2;
+        MEMrdata2 <= DMEMPreClockData;
         MEMAlu <= alu_out;
         MEMrd <= EXrd;
     end
+    assign dmempreo = DMEMPreClockData;
+    assign forwardAo = forwardA;
+    assign forwardBo = forwardB;
+    assign MEMAluo = MEMAlu;
+    assign wdatao = wdata;
     
   // Data Memory
   dmem DMEM (

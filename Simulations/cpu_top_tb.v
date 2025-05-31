@@ -39,7 +39,18 @@ module cpu_top_tb;
   wire stall;
   wire [1:0] Reg_WBSelID;
   wire [1:0] Reg_WBSelEX;
-
+  wire [31:0] MEMrdata2;
+  wire [31:0] dmempreo;
+  wire [31:0] forwardAo;
+  wire [31:0] forwardBo;
+  wire [31:0] MEMAluo;
+  wire [31:0] wdatao;
+  wire Reg_WEnMEMo;
+  wire Reg_WEnWBo;
+  wire [4:0] rs1_EXo;
+  wire [4:0] rs2_EXo;
+  wire [4:0] MEMrdo;
+  wire [4:0] WBrdo;
   // Register file outputs (x0 to x31)
   wire [31:0] Out [0:31];
 
@@ -94,6 +105,18 @@ module cpu_top_tb;
     .stall(stall),
     .Reg_WBSelID(Reg_WBSelID),
     .Reg_WBSelEX(Reg_WBSelEX),
+    .MEMrdata2O(MEMrdata2),
+    .dmempreo(dmempreo),
+    .forwardAo(forwardAo),
+    .forwardBo(forwardBo),
+    .MEMAluo(MEMAluo),
+    .wdatao(wdatao),    
+    .Reg_WEnMEMo(Reg_WEnMEMo),
+    .Reg_WEnWBo(Reg_WEnWBo),
+    .rs1_EXo(rs1_EXo),
+    .rs2_EXo(rs2_EXo),
+    .MEMrdo(MEMrdo),
+    .WBrdo(WBrdo),
     .Out0(Out[0]),
     .Out1(Out[1]),
     .Out2(Out[2]),

@@ -33,14 +33,8 @@ module dmem(
     //debug
     output wire [31:0] dmem_out
     );
-    
+
     reg [31:0] dmem [127:0];
-    initial begin
-        dmem[0] = 32'hDEADBEEF;
-        dmem[1] = 32'h12345678;
-        dmem[2] = 32'hCAFEBABE;
-    end
-    
     assign exception = ((address[0] || address[1]) && funct3 == 3'b010 ) || //word
                        ((address[0]) && funct3 == 3'b001 ); //haldword
 
