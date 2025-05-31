@@ -38,6 +38,9 @@ module datapath_tb;
     wire [3:0] ALU_Sel;
     wire dmemRW;
     wire [1:0] Reg_WBSel;
+    wire [1:0] Reg_WBSelID;
+    wire [1:0] Reg_WBSelEX;
+
 
     // Instantiate the Unit Under Test (UUT)
     datapath uut (
@@ -54,7 +57,9 @@ module datapath_tb;
         .ALU_ASel(ALU_ASel),
         .ALU_Sel(ALU_Sel),
         .dmemRW(dmemRW),
-        .Reg_WBSel(Reg_WBSel)
+        .Reg_WBSel(Reg_WBSel),
+        .Reg_WBSelID(Reg_WBSelID),
+        .Reg_WBSelEX(Reg_WBSelEX)
     );
 
     task display_outputs;

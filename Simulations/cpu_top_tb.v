@@ -36,6 +36,9 @@ module cpu_top_tb;
   wire Reg_WEn;
   wire PCSel;
   wire [31:0] dmem_out;
+  wire stall;
+  wire [1:0] Reg_WBSelID;
+  wire [1:0] Reg_WBSelEX;
 
   // Register file outputs (x0 to x31)
   wire [31:0] Out [0:31];
@@ -88,6 +91,9 @@ module cpu_top_tb;
     .brLt(brLt),
     .Reg_WEn(Reg_WEn),
     .PCSel(PCSel),
+    .stall(stall),
+    .Reg_WBSelID(Reg_WBSelID),
+    .Reg_WBSelEX(Reg_WBSelEX),
     .Out0(Out[0]),
     .Out1(Out[1]),
     .Out2(Out[2]),

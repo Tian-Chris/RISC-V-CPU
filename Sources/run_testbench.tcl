@@ -1,7 +1,7 @@
 # runwith source "U:/Documents/RISC-V CPU/Risc.srcs/sources_1/new/run_testbench.tcl"
 cd "U:/Documents/RISC-V CPU/Risc.sim/sim_1/behav/xsim"
 
-set runs [list "add" "sub" "and" "or" "xor" "sll" "srl" "sra" "slt" "imm" "memory" "control" "jump" "other"]
+set runs [list "add" "sub" "and" "or" "xor" "sll" "srl" "sra" "slt" "imm" "memory" "control" "jump" "other" "hazard"]
 array set results {}
 
 foreach r $runs {

@@ -24,13 +24,27 @@ module ALU(
     input wire [31:0] rdata1, rdata2, PC, imm,
     input wire ASel, BSel,
     input wire [3:0] operation,
+    input wire [31:0] MEMAlu,
+    input wire [31:0] WBdmem,
+    input wire [31:0] WBAlu,
+    input wire [31:0] WBPC,   // not +4, need to +4 here
+    input wire [1:0] WBSel,
+    input wire [1:0] forwardA,
+    input wire [1:0] forwardB,
     output reg [31:0] result //consider swapping to wire
     );
+    wire [31:0] wdata;
+    wire [31:0] aEX, bEX;
     wire [31:0] a, b;
     wire signed [31:0] a_s, b_s; //signed
     
-    assign a   = ASel ? PC  : rdata1;
-    assign b   = BSel ? imm : rdata2;
+    assign wdata = (WBSel == 2'b00) ? WBdmem : 
+                   (WBSel == 2'b01) ? WBAlu : WBPC + 4;
+      
+    assign aEX   = ASel ? PC  : rdata1;
+    assign bEX   = BSel ? imm : rdata2;
+    assign a = forwardA[1] ? MEMAlu : (forwardA[0] ? wdata : aEX);
+    assign b = forwardB[1] ? MEMAlu : (forwardB[0] ? wdata : bEX);
     assign a_s = $signed(a);
     assign b_s = $signed(b);
 

@@ -34,6 +34,9 @@ module cpu_top (
   output wire brLt,
   output wire Reg_WEn,
   output wire PCSel,
+  output wire stall,
+  output wire [1:0] Reg_WBSelID,
+  output wire [1:0] Reg_WBSelEX,
   
    //output reg
    output wire [31:0] Out0, Out1, Out2, Out3, Out4, Out5, Out6, Out7, Out8, Out9, 
@@ -42,18 +45,49 @@ module cpu_top (
                       Out28, Out29, Out30, Out31, dmem_out
    );
 
-  wire [4:0] rs1, rs2, rd;
-  wire branch_signed, ALU_BSel, ALU_ASel, dmemRW;
-  wire [2:0] funct3, imm_gen_sel;
-  wire [3:0] ALU_Sel;
-  wire [1:0] Reg_WBSel;
+    wire [4:0] rs1, rs2, rd;
+    wire branch_signed, ALU_BSel, ALU_ASel, dmemRW;
+    wire [2:0] funct3, imm_gen_sel;
+    wire [3:0] ALU_Sel;
+    wire [1:0] Reg_WBSel, forwardA, forwardB;
 
+    //IF Stage Reg
+    reg [31:0] IDinstruct;
+    reg [31:0] IDPC;
+    reg [4:0] IDrs1;
+    reg [4:0] IDrs2;
+    reg [4:0] IDrd;
+    
+    //WB Stage Reg
+    reg [31:0] WBinstruct;
+    reg [31:0] WBAlu;
+    reg [31:0] WBPC;
+    reg [31:0] WBdmem;
+    reg [4:0]  WBrd;
+    
+    //EX Stage Reg
+    reg [31:0] EXinstruct;
+    reg [31:0] EXPC;
+    reg [31:0] EXrdata1;
+    reg [31:0] EXrdata2;
+    reg [31:0] EXimm;
+    reg [4:0]  EXrd;
+    wire IDmemRead;
+
+    //MEM Stage Reg
+    reg [31:0] MEMinstruct;
+    reg [31:0] MEMAlu;
+    reg [31:0] MEMrdata2;
+    reg [31:0] MEMPC;
+    reg [4:0] MEMrd;
+        
   // Program Counter
   PC PC (
     .clk(clk),
     .PC_ALU_input(alu_out),
     .PC_select(PCSel),
-    .PC(pc)
+    .PC(pc),
+    .stall(stall)
   );
 
   // Instruction Memory
@@ -64,19 +98,25 @@ module cpu_top (
     .rs1(rs1),
     .rs2(rs2)
   );
-  
-    //IF Stage Reg
-    reg [31:0] IDinstruct;
-    reg [31:0] IDPC;
-    reg [4:0] IDrs1;
-    reg [4:0] IDrs2;
-
+ 
+    wire [4:0] IFrs1 = rs1;
+    wire [4:0] IFrs2 = rs2;
+            
     always @(posedge clk) begin
-        IDinstruct <= instruction;
-        IDPC <= pc;
-        IDrs1 <= rs1;
-        IDrs2 <= rs2;
+        if (!stall) begin
+            IDinstruct <= instruction;
+            IDPC <= pc;
+            IDrs1 <= rs1;
+            IDrs2 <= rs2;
+            IDrd <= rd;
+        end else begin
+            IDinstruct <= 32'h00000013; // NOP
+            IDrs1 <= 5'b0;              // Don't read any reg
+            IDrs2 <= 5'b0;
+            IDrd  <= 5'b0;              // Don't write any reg
+        end
     end
+
     
   // Immediate Generator
   imm_gen IMM (
@@ -100,15 +140,16 @@ module cpu_top (
     .ALU_ASel(ALU_ASel),
     .ALU_Sel(ALU_Sel),
     .dmemRW(dmemRW),
-    .Reg_WBSel(Reg_WBSel)
+    .Reg_WBSel(Reg_WBSel),
+    .MEMrd(MEMrd),
+    .WBrd(WBrd),
+    .forwardA(forwardA),
+    .forwardB(forwardB),
+    .Reg_WBSelID(Reg_WBSelID),
+    .Reg_WBSelEX(Reg_WBSelEX),
+    .IDmemRead(IDmemRead)
   );    
 
-    //WB Stage Reg
-    reg [31:0] WBinstruct;
-    reg [31:0] WBAlu;
-    reg [31:0] WBPC;
-    reg [31:0] WBdmem;
-    
   // Register File
   register RF (
     .clk(clk),
@@ -132,21 +173,25 @@ module cpu_top (
     .Out28(Out28), .Out29(Out29), .Out30(Out30), .Out31(Out31)
   );
 
-    //EX Stage Reg
-    reg [31:0] EXinstruct;
-    reg [31:0] EXPC;
-    reg [31:0] EXrdata1;
-    reg [31:0] EXrdata2;
-    reg [31:0] EXimm;
-
 
     always @(posedge clk) begin
-        EXinstruct <= IDinstruct;
-        EXPC <= IDPC;
-        EXrdata1 <= rdata1;
-        EXrdata2 <= rdata2;
-        EXimm <= imm;
+            EXinstruct <= IDinstruct;
+            EXPC <= IDPC;
+            EXrdata1 <= rdata1;
+            EXrdata2 <= rdata2;
+            EXimm <= imm;
+            EXrd <= IDrd;
     end
+    
+  //hazard
+  
+  hazard_unit HAZARD (
+    .IFrs1(IFrs1),
+    .IFrs2(IFrs2),
+    .IDrd(IDrd),
+    .IDmemRead(IDmemRead),
+    .stall(stall)
+  );
   
   // ALU
   ALU ALU (
@@ -157,7 +202,14 @@ module cpu_top (
     .ASel(ALU_ASel),
     .BSel(ALU_BSel),
     .operation(ALU_Sel),
-    .result(alu_out)
+    .result(alu_out),
+    .MEMAlu(MEMAlu),
+    .WBdmem(WBdmem),
+    .WBAlu(WBAlu),
+    .WBPC(WBPC),
+    .WBSel(Reg_WBSel),
+    .forwardA(forwardA),
+    .forwardB(forwardB)
   );
 
   // Branch Comparator
@@ -169,18 +221,12 @@ module cpu_top (
     .less_than(brLt)
   );
 
-
-    //MEM Stage Reg
-    reg [31:0] MEMinstruct;
-    reg [31:0] MEMAlu;
-    reg [31:0] MEMrdata2;
-    reg [31:0] MEMPC;
-
     always @(posedge clk) begin
         MEMinstruct <= EXinstruct;
         MEMPC <= EXPC;
         MEMrdata2 <= EXrdata2;
         MEMAlu <= alu_out;
+        MEMrd <= EXrd;
     end
     
   // Data Memory
@@ -200,6 +246,7 @@ module cpu_top (
         WBdmem <= dmem_out;
         WBAlu <= MEMAlu;
         WBinstruct <= MEMinstruct;
+        WBrd <= MEMrd;
     end
 endmodule
 

@@ -25,6 +25,8 @@ module datapath(
     input wire [31:0] instruct, //ID
     input wire brEq,
     input wire brLt,
+    input wire [4:0] MEMrd,
+    input wire [4:0] WBrd,
     output reg [2:0] funct3,
     output reg PCSel,
     output reg Reg_WEn, 
@@ -34,7 +36,14 @@ module datapath(
     output reg ALU_ASel, //0 = rdata2, 1 = imm
     output reg [3:0] ALU_Sel, //0-8 add-shift_right
     output reg dmemRW, //1 = write, 0 = read
-    output reg [1:0] Reg_WBSel // 0 = dmem, 1 = alu, 2 = PC+4
+    output reg [1:0] Reg_WBSel, // 0 = dmem, 1 = alu, 2 = PC+4
+    output reg [1:0] forwardA,
+    output reg [1:0] forwardB,
+    output wire IDmemRead,
+    
+        // load hazard detection
+    output reg [1:0] Reg_WBSelID,
+    output reg [1:0] Reg_WBSelEX
     );
     
     wire [8:0] nbiID; //nine_bit_instruction
@@ -48,25 +57,63 @@ module datapath(
     reg [31:0] instructWB;
     reg brEqMEM;
     reg brLtMEM;
+    
+    //forwarding
+    wire [4:0] rs1_EX = instructEX[19:15];
+    wire [4:0] rs2_EX = instructEX[24:20];
+    reg Reg_WEnID;
+    reg Reg_WEnEX;
+    reg Reg_WEnMEM;
+    reg Reg_WEnWB;
+
+    always @(*) begin
+        forwardA = 2'b00;
+        forwardB = 2'b00;
+    
+        if (Reg_WEnMEM && MEMrd != 0 && MEMrd == rs1_EX)
+            forwardA = 2'b10;
+        else if (Reg_WEnWB && WBrd != 0 && WBrd == rs1_EX)
+            forwardA = 2'b01;
+    
+        if (Reg_WEnMEM && MEMrd != 0 && MEMrd == rs2_EX)
+            forwardB = 2'b10;
+        else if (Reg_WEnWB && WBrd != 0 && WBrd == rs2_EX)
+            forwardB = 2'b01;
+    end
+    
+    initial begin
+        Reg_WBSelID  = 2'b11;
+        Reg_WBSelEX  = 2'b11;
+    end
+    
+    assign IDmemRead = (Reg_WBSelID == 2'b00);
+    
     //           funct7        funct3          oppcode (without last 2 bits)
     assign nbiID = {instruct[30], instruct[14:12], instruct[6:2]};
     assign nbiEX = {instructEX[30], instructEX[14:12], instructEX[6:2]};
     assign nbiMEM = {instructMEM[30], instructMEM[14:12], instructMEM[6:2]};
     assign nbiWB = {instructWB[30], instructWB[14:12], instructWB[6:2]};
 
+    // =====
+    // clocks
+    // =====
     //ex
     always @(posedge clk) begin
         instructEX <= instruct;
+        Reg_WEnEX <= Reg_WEnID;
+        Reg_WBSelEX <= Reg_WBSelID;
     end
     //mem
     always @(posedge clk) begin
         instructMEM <= instructEX;
         brEqMEM <= brEq;
         brLtMEM <= brLt;
+        Reg_WEnMEM <= Reg_WEnEX;
     end
     //wb
     always @(posedge clk) begin
         instructWB <= instructMEM;
+        Reg_WEnWB <= Reg_WEnMEM;
     end
 
     always @(*) begin
@@ -123,7 +170,58 @@ module datapath(
             9'b?_???_01101: imm_gen_sel = 3'b100; // LUI
             default: imm_gen_sel = 3'b000;
         endcase
-
+        
+    //for forwarding
+       casez(nbiID)
+        //==Arithmetic==
+            //== R-type ==
+            9'b?_???_01100: Reg_WEnID = 1'b1; //all arith
+            //== I-type ==
+            9'b?_???_00100: Reg_WEnID = 1'b1; //i and i* type arith
+        //== Memory==     
+            // I-type
+            9'b?_???_00000: Reg_WEnID = 1'b1; //all load
+            // S-type
+            9'b?_???_01000: Reg_WEnID = 1'b0; //all store
+        //== Control==
+            // B-type
+            9'b?_???_11000: Reg_WEnID = 1'b0; //all store
+            // J-type
+            9'b?_???_11011: Reg_WEnID = 1'b1; //jal
+            //I-type
+            9'b?_???_11001: Reg_WEnID = 1'b1; //jalr
+        //== Other==
+            // U-type
+            9'b?_???_00101: Reg_WEnID = 1'b1; //aiupc
+            9'b?_???_01101: Reg_WEnID = 1'b1; // LUI
+            default: Reg_WEnID = 1'b0;
+        endcase
+        
+    //for load hazard detection
+        casez(nbiID)
+        //==Arithmetic==
+            //== R-type ==
+            9'b?_???_01100: Reg_WBSelID = 2'b01; //all arith
+            //== I-type ==
+            9'b?_???_00100: Reg_WBSelID = 2'b01; //i and i* type arith
+        //== Memory==     
+            // I-type
+            9'b?_???_00000: Reg_WBSelID = 2'b00; //all load
+            // S-type
+            9'b?_???_01000: Reg_WBSelID = 2'b00; //all store
+        //== Control==
+            // B-type
+            9'b?_???_11000: Reg_WBSelID = 2'b00; //all store
+            // J-type
+            9'b?_???_11011: Reg_WBSelID = 2'b11; //jal
+            //I-type
+            9'b?_???_11001: Reg_WBSelID = 2'b11; //jalr
+        //== Other==
+            // U-type
+            9'b?_???_00101: Reg_WBSelID = 2'b01; //aiupc
+            9'b?_???_01101: Reg_WBSelID = 2'b01; // LUI
+            default: Reg_WBSelID = 2'b11;
+        endcase 
         //======
         //  Ex
         //======
@@ -292,105 +390,3 @@ module datapath(
             endcase   
          end     
 endmodule
-
-
-
-
-
-// casez(nbi)
-//         //Control: PCSel_RegWEn_immSel_BranchSign_ALUBSel_ALUASel_ALUSel_dmemRW_RegWBSel
-//         //Control:    1     1     3       1          1      1       4       1      2
-    
-//         //==Arithmetic==
-        
-//             //==R-type==
-//             //oppcode: 0110011 -> 01100
-//             //RegWEn    immSel  BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
-//             //1(write)  XXX     X           0 (A)    0 (B)    Opperation  0 (Read)  01 (ALU)
-//             9'b0_000_01100: control = 14'b1_000_000_0000_0_01; //add
-//             9'b1_000_01100: control = 14'b1_000_000_0001_0_01; //sub
-//             9'b0_111_01100: control = 14'b1_000_000_0010_0_01; //and
-//             9'b0_110_01100: control = 14'b1_000_000_0011_0_01; //or
-//             9'b0_100_01100: control = 14'b1_000_000_0100_0_01; //xor
-//             9'b0_001_01100: control = 14'b1_000_000_0101_0_01; //sl
-//             9'b0_101_01100: control = 14'b1_000_000_0110_0_01; //sr
-//             9'b1_101_01100: control = 14'b1_000_000_0111_0_01; //sra
-//             9'b0_010_01100: control = 14'b1_000_000_1001_0_01; //slt
-//             9'b0_011_01100: control = 14'b1_000_000_1000_0_01; //sltu
-            
-//             //== I-type ==
-//             //oppcode: 0010011 -> 00100
-//             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
-//             //1(write)  000 (I)  X           0 (A)    1 (imm)  Opperation  0 (Read)  01 (ALU)
-//             9'b?_000_00100: control = 14'b1_000_001_0000_0_01; //addi note no subi exists
-//             9'b?_111_00100: control = 14'b1_000_001_0010_0_01; //andi
-//             9'b?_110_00100: control = 14'b1_000_001_0011_0_01; //ori
-//             9'b?_100_00100: control = 14'b1_000_001_0100_0_01; //xori
-            
-//             //I*-type start
-//             9'b0_001_00100: control = 14'b1_001_001_0101_0_01; //sli
-//             9'b0_101_00100: control = 14'b1_001_001_0110_0_01; //sri
-//             9'b1_101_00100: control = 14'b1_001_001_0111_0_01; //srai
-            
-//             9'b?_010_00100: control = 14'b1_000_001_1001_0_01; //slti
-//             9'b?_011_00100: control = 14'b1_000_001_1000_0_01; //sltiu
-            
-//         //== Memory==
-                    
-//             // I-type
-//             //oppcode: 0000011 -> 00000
-//             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
-//             //1(write)  000(i)   X           0 (A)    1 (imm)  ADD         0 (Read)  00 (dmem)
-//             9'b0_000_00000: control = 14'b1_000_001_0000_0_00; //dmem handles size //lb
-//             9'b0_100_00000: control = 14'b1_000_001_0000_0_00; //lb unsigned
-//             9'b0_001_00000: control = 14'b1_000_001_0000_0_00; //lh
-//             9'b0_101_00000: control = 14'b1_000_001_0000_0_00; //lhu
-//             9'b0_010_00000: control = 14'b1_000_001_0000_0_00; //lw
-            
-//             // S-type
-//             //oppcode: 0100011 -> 01000
-//             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
-//             //0(read)   010(s)   X           0 (A)    1 (imm)  ADD         1 (Write) XX
-//             9'b?_000_01000: control = 14'b0_010_001_0000_100; //store byte //dmem handles size
-//             9'b?_001_01000: control = 14'b0_010_001_0000_100; //store halfword 
-//             9'b?_010_01000: control = 14'b0_010_001_0000_100; //store word
-            
-//         //== Control==
-
-//             // B-type
-//             //oppcode: 1100011 -> 11000
-//             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
-//             //0(read)   011(s)   depends     1 (PC)   1 (imm)  ADD         0 (Read)  XX
-//             9'b?_000_11000: control = 14'b0_011_011_0000_000; //beq PC bit handled elsewhere
-//             9'b?_001_11000: control = 14'b0_011_011_0000_000; //bne
-//             9'b?_100_11000: control = 14'b0_011_011_0000_000; //blt
-//             9'b?_110_11000: control = 14'b0_011_111_0000_000; //bltu
-//             9'b?_101_11000: control = 14'b0_011_011_0000_000; //bge
-//             9'b?_111_11000: control = 14'b0_011_111_0000_000; //bgeu
-            
-//             // J-type
-//             //oppcode: 1101111 -> 11011
-//             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
-//             //1(write)  101(j)   X           1 (PC)   1 (imm)  ADD         0 (Read)  11 (PC + 4)
-//             9'b?_???_11011: control = 14'b1_101_011_0000_011; //jal
-            
-//             //I-type
-//             //oppcode 1100111 -> 11001
-//             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
-//             //1(write)  000(i)   X           0 (a)    1 (imm)  ADD         0 (Read)  11 (PC + 4)
-//             9'b?_000_11001: control = 14'b1_000_001_0000_011; //jalr
-            
-//         //== Other==
-//             // U-type
-//             // 0010111-> 00101
-//             //RegWEn    immSel   BranchSign  ALUASel  ALUBSel  ALUSel      dmemRW    RegWBSel
-//             //1(write)  100(U)   X           1 (PC)   1 (imm)  ADD         0 (Read)  01 (ALU)
-//             9'b?_???_00101: control = 14'b1_100_011_0000_001; //aiupc
-            
-//             9'b?_???_01101: control = 14'b1_100_111_1011_001; // LUI
-
-//             //LUI not sure how to implement leaving blank for now
-            
-//             //pretty sure this does nothing since REGW is 0 and dmemW is 0 so it should just do nothing
-//             default: control = 14'b0_000_0000_000;
-//         endcase

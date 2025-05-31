@@ -24,6 +24,7 @@ module PC(
     input clk,
     input wire [31:0] PC_ALU_input,
     input wire PC_select,
+    input wire stall,
     output reg [31:0] PC
     );
     
@@ -35,6 +36,7 @@ module PC(
             if(PC_select)
                 PC <= PC_ALU_input;
             else
-                PC <= PC + 4;
+                if(!stall)
+                    PC <= PC + 4;
         end
 endmodule
