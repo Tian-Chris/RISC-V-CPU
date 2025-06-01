@@ -58,8 +58,12 @@ module register(
     end
 
     // Combinational read
-    assign rdata1 = (r1 == 0) ? 32'b0 : RegData[r1];
-    assign rdata2 = (r2 == 0) ? 32'b0 : RegData[r2];
+    assign rdata1 = (r1 == 0) ? 32'b0 :
+                ((r1 == rd) && write_enable && rd != 0) ? wdata : RegData[r1];
+
+    assign rdata2 = (r2 == 0) ? 32'b0 :
+                ((r2 == rd) && write_enable && rd != 0) ? wdata : RegData[r2];
+
 
     // Debug outputs
     assign Out0 = RegData[0];   assign Out1 = RegData[1];   assign Out2 = RegData[2];   assign Out3 = RegData[3];

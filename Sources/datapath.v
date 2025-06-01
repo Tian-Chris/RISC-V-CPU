@@ -64,8 +64,11 @@ module datapath(
     reg brLtMEM;
     
     //forwarding
-    wire [4:0] rs1_EX = instructEX[19:15];
-    wire [4:0] rs2_EX = instructEX[24:20];
+    reg [1:0] uses_reg; // 1 is rs2 0 is rs1
+    wire [4:0] raw_rs1_EX = instructEX[19:15];
+    wire [4:0] raw_rs2_EX = instructEX[24:20];
+    wire [4:0] rs1_EX = uses_reg[0] ? raw_rs1_EX : 5'd0;
+    wire [4:0] rs2_EX = uses_reg[1] ? raw_rs2_EX : 5'd0;
     reg Reg_WEnID;
     reg Reg_WEnEX;
     reg Reg_WEnMEM;
@@ -190,6 +193,30 @@ module datapath(
             default: imm_gen_sel = 3'b000;
         endcase
         
+    //for forwarding mask
+       casez(nbiEX)
+            9'b?_???_01100: uses_reg = 2'b11; //all arith
+            //== I-type ==
+            9'b?_???_00100: uses_reg = 2'b01; //i and i* type arith
+        //== Memory==     
+            // I-type
+            9'b?_???_00000: uses_reg = 2'b01; //all load
+            // S-type
+            9'b?_???_01000: uses_reg = 2'b11; //all store
+        //== Control==
+            // B-type
+            9'b?_???_11000: uses_reg = 2'b11; //all store
+            // J-type
+            9'b?_???_11011: uses_reg = 2'b00; //jal
+            //I-type
+            9'b?_???_11001: uses_reg = 2'b01; //jalr
+        //== Other==
+            // U-type
+            9'b?_???_00101: uses_reg = 2'b00; //aiupc
+            9'b?_???_01101: uses_reg = 2'b00; // LUI
+            default: uses_reg = 2'b00;
+       endcase
+       
     //for forwarding
        casez(nbiID)
         //==Arithmetic==
