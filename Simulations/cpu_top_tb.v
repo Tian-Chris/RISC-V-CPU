@@ -53,7 +53,7 @@ module cpu_top_tb;
   wire [4:0] WBrdo;
   // Register file outputs (x0 to x31)
   wire [31:0] Out [0:31];
-
+  wire jump;
   // Bind each output explicitly for now (depends on your cpu_top port list)
   wire [31:0] Out0 = Out[0];
   wire [31:0] Out1 = Out[1];
@@ -117,6 +117,7 @@ module cpu_top_tb;
     .rs2_EXo(rs2_EXo),
     .MEMrdo(MEMrdo),
     .WBrdo(WBrdo),
+    .jump(jump),
     .Out0(Out[0]),
     .Out1(Out[1]),
     .Out2(Out[2]),

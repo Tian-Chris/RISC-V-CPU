@@ -27,6 +27,5 @@ module hazard_unit (
     input  wire IDmemRead,
     output wire stall
 );
-
     assign stall = IDmemRead && (IDrd != 0) && ((IDrd == IFrs1) || (IDrd == IFrs2));
 endmodule

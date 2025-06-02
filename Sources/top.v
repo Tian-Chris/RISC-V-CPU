@@ -49,6 +49,7 @@ module cpu_top (
   output wire [4:0] rs2_EXo,
   output wire [4:0] MEMrdo,
   output wire [4:0] WBrdo,
+  output wire jump,
 
 
   
@@ -65,7 +66,7 @@ module cpu_top (
     wire [3:0] ALU_Sel;
     wire [1:0] Reg_WBSel, forwardA, forwardB, forwardDmem;
 
-    //IF Stage Reg
+    //ID Stage Reg
     reg [31:0] IDinstruct;
     reg [31:0] IDPC;
     reg [4:0] IDrs1;
@@ -96,12 +97,15 @@ module cpu_top (
     reg [4:0]  MEMrd;
     assign MEMrdata2O = MEMrdata2;
         
+    //jump
+    //wire jump;
   // Program Counter
   PC PC (
     .clk(clk),
-    .PC_ALU_input(alu_out),
+    .PC_ALU_input(MEMAlu),
     .PC_select(PCSel),
     .PC(pc),
+    .jump(jump),
     .stall(stall)
   );
 
@@ -111,7 +115,8 @@ module cpu_top (
     .inst(instruction),
     .rd(rd),
     .rs1(rs1),
-    .rs2(rs2)
+    .rs2(rs2),
+    .jump(jump)
   );
  
     wire [4:0] IFrs1 = rs1;
@@ -132,7 +137,7 @@ module cpu_top (
         end
     end
 
-    
+ 
   // Immediate Generator
   imm_gen IMM (
     .imm_in(IDinstruct),
@@ -163,6 +168,7 @@ module cpu_top (
     .forwardDmem(forwardDmem),
     .Reg_WBSelID(Reg_WBSelID),
     .Reg_WBSelEX(Reg_WBSelEX),
+    .jump(jump),
     .IDmemRead(IDmemRead),
     .Reg_WEnMEMo(Reg_WEnMEMo),
     .Reg_WEnWBo(Reg_WEnWBo),
@@ -284,6 +290,20 @@ module cpu_top (
         WBinstruct <= MEMinstruct;
         WBrd <= MEMrd;
     end
+    
+    always @(posedge clk) begin
+    if (jump) begin
+        IDinstruct <= 32'h00000013; // NOP
+        IDrs1 <= 5'b0;              // Don't read any reg
+        IDrs2 <= 5'b0;
+        IDrd  <= 5'b0;              // Don't write any reg
+        EXinstruct <= 32'h00000013; // NOP
+        EXrd  <= 5'b0;              // Don't write any reg
+        MEMinstruct <= 32'h00000013; // NOP
+        MEMrd  <= 5'b0;              // Don't write any reg
+    end
+end   
+    
 endmodule
 
 

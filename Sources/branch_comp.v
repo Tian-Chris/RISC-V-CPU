@@ -33,6 +33,6 @@ module branch_comp(
     assign r1_s = $signed(rdata1);
     assign r2_s = $signed(rdata2);
     
-    assign less_than = (sign_select) ? (r1_s < r2_s) : (rdata1 < rdata2);
+    assign less_than = (!sign_select) ? (r1_s < r2_s) : (rdata1 < rdata2);
     assign equal     = (rdata1 == rdata2);
 endmodule

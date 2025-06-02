@@ -48,7 +48,11 @@ module datapath(
     
         // load hazard detection
     output reg [1:0] Reg_WBSelID,
-    output reg [1:0] Reg_WBSelEX
+    output reg [1:0] Reg_WBSelEX,
+    
+    //jump
+    output reg jump
+
     );
     
     wire [8:0] nbiID; //nine_bit_instruction
@@ -60,8 +64,11 @@ module datapath(
     reg [31:0] instructEX;
     reg [31:0] instructMEM;
     reg [31:0] instructWB;
-    reg brEqMEM;
-    reg brLtMEM;
+    reg [1:0] Reg_WBSelMEM;
+    reg [1:0] Reg_WBSelWB;
+    
+    reg BrEqMEM;
+    reg BrLTMEM;
     
     //forwarding
     reg [1:0] uses_reg; // 1 is rs2 0 is rs1
@@ -128,17 +135,24 @@ module datapath(
     //mem
     always @(posedge clk) begin
         instructMEM <= instructEX;
-        brEqMEM <= brEq;
-        brLtMEM <= brLt;
         Reg_WEnMEM <= Reg_WEnEX;
+        Reg_WBSelMEM <= Reg_WBSelEX;
+        BrEqMEM <= brEq;
+        BrLTMEM <= brLt;
     end
     //wb
     always @(posedge clk) begin
         instructWB <= instructMEM;
         Reg_WEnWB <= Reg_WEnMEM;
+        Reg_WBSelWB <= Reg_WBSelMEM;
     end
 
     always @(*) begin
+        jump = PCSel;
+    end
+    always @(*) begin
+        Reg_WEn = Reg_WEnWB;
+        Reg_WBSel = Reg_WBSelWB;
         //======
         //  ID
         //======
@@ -375,68 +389,17 @@ module datapath(
             PCSel = 1; // JAL or JALR
         end else if (nbiMEM[4:0] == 5'b11000) begin
             case (funct3)
-                3'b000: PCSel = brEq;
-                3'b001: PCSel = !brEq;
-                3'b100: PCSel = brLt;
-                3'b110: PCSel = brLt;
-                3'b101: PCSel = !brLt;
-                3'b111: PCSel = !brLt;
+                3'b000: PCSel = BrEqMEM;
+                3'b001: PCSel = !BrEqMEM;
+                3'b100: PCSel = BrLTMEM;
+                3'b110: PCSel = BrLTMEM;
+                3'b101: PCSel = !BrLTMEM;
+                3'b111: PCSel = !BrLTMEM;
                 default: PCSel = 0;
             endcase
         end else begin
             PCSel = 0;
         end
-        //=====
-        // WB
-        //=====
-            casez(nbiWB)
-            //==Arithmetic==
-                //== R-type ==
-                9'b?_???_01100: Reg_WEn = 1'b1; //all arith
-                //== I-type ==
-                9'b?_???_00100: Reg_WEn = 1'b1; //i and i* type arith
-            //== Memory==     
-                // I-type
-                9'b?_???_00000: Reg_WEn = 1'b1; //all load
-                // S-type
-                9'b?_???_01000: Reg_WEn = 1'b0; //all store
-            //== Control==
-                // B-type
-                9'b?_???_11000: Reg_WEn = 1'b0; //all store
-                // J-type
-                9'b?_???_11011: Reg_WEn = 1'b1; //jal
-                //I-type
-                9'b?_???_11001: Reg_WEn = 1'b1; //jalr
-            //== Other==
-                // U-type
-                9'b?_???_00101: Reg_WEn = 1'b1; //aiupc
-                9'b?_???_01101: Reg_WEn = 1'b1; // LUI
-                default: Reg_WEn = 1'b0;
-            endcase
-            
-            casez(nbiWB)
-            //==Arithmetic==
-                //== R-type ==
-                9'b?_???_01100: Reg_WBSel = 2'b01; //all arith
-                //== I-type ==
-                9'b?_???_00100: Reg_WBSel = 2'b01; //i and i* type arith
-            //== Memory==     
-                // I-type
-                9'b?_???_00000: Reg_WBSel = 2'b00; //all load
-                // S-type
-                9'b?_???_01000: Reg_WBSel = 2'b00; //all store
-            //== Control==
-                // B-type
-                9'b?_???_11000: Reg_WBSel = 2'b00; //all store
-                // J-type
-                9'b?_???_11011: Reg_WBSel = 2'b11; //jal
-                //I-type
-                9'b?_???_11001: Reg_WBSel = 2'b11; //jalr
-            //== Other==
-                // U-type
-                9'b?_???_00101: Reg_WBSel = 2'b01; //aiupc
-                9'b?_???_01101: Reg_WBSel = 2'b01; // LUI
-                default: Reg_WBSel = 2'b00;
-            endcase   
-         end     
+      
+        end     
 endmodule
