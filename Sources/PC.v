@@ -25,7 +25,6 @@ module PC(
     input wire [31:0] PC_ALU_input,
     input wire PC_select,
     input wire stall,
-    input wire jump,
     output reg [31:0] PC
     );
     

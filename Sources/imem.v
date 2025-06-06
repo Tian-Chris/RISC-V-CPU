@@ -22,7 +22,6 @@
 
 module imem( //swap this to wire
     input wire [31:0] PC,
-    input wire jump,
     output reg [31:0] inst,
     output reg [4:0] rd,
     output reg [4:0] rs1,
@@ -36,10 +35,10 @@ module imem( //swap this to wire
     
     always @(*)
     begin
-                inst = inst_mem[PC[31:2]];
-                rd   = inst_mem[PC[31:2]][11:7];
-                rs1  = inst_mem[PC[31:2]][19:15];
-                rs2  = inst_mem[PC[31:2]][24:20];
+        inst = inst_mem[PC[31:2]];
+        rd   = inst_mem[PC[31:2]][11:7];
+        rs1  = inst_mem[PC[31:2]][19:15];
+        rs2  = inst_mem[PC[31:2]][24:20];
     end
 
 endmodule

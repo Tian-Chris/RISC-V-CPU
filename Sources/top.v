@@ -105,7 +105,6 @@ module cpu_top (
     .PC_ALU_input(MEMAlu),
     .PC_select(PCSel),
     .PC(pc),
-    .jump(jump),
     .stall(stall)
   );
 
@@ -115,9 +114,8 @@ module cpu_top (
     .inst(instruction),
     .rd(rd),
     .rs1(rs1),
-    .rs2(rs2),
-    .jump(jump)
-  );
+    .rs2(rs2)
+    );
  
     wire [4:0] IFrs1 = rs1;
     wire [4:0] IFrs2 = rs2;
