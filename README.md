@@ -7,8 +7,8 @@ This project implements a 5-stage pipelined RISC-V CPU in Verilog. It supports t
 - 5-Stage pipeline design
 - Hazard Handling
 
-Diagram:
-[Datapath Diagram](images/diagram.png)
+# Diagram:
+[Datapath Diagram](Images/diagram.png)
 
 # Resources Used
 - Vivado
