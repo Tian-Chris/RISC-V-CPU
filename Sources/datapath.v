@@ -27,6 +27,9 @@ module datapath(
     input wire brLt,
     input wire [4:0] MEMrd,
     input wire [4:0] WBrd,
+    input wire jump_taken,
+    output reg jump_early,
+    output reg branch_early,
     output reg [2:0] funct3,
     output reg PCSel,
     output reg Reg_WEn, 
@@ -50,8 +53,15 @@ module datapath(
     output reg [1:0] Reg_WBSelID,
     output reg [1:0] Reg_WBSelEX,
     
-    //jump
-    output reg jump
+    //flush
+    input  wire [1:0] flushIn,
+    output reg [1:0] flushOut,
+    
+    //branch predict
+    output reg branch_resolved,
+    output reg actual_taken
+
+
 
     );
     
@@ -123,6 +133,18 @@ module datapath(
     assign nbiMEM = {instructMEM[30], instructMEM[14:12], instructMEM[6:2]};
     assign nbiWB = {instructWB[30], instructWB[14:12], instructWB[6:2]};
 
+    //Early jump/branch
+    always @(*) begin
+    if (nbiID[4:0] == 5'b11011)
+        jump_early = 1;
+    else
+        jump_early = 0;
+    if (nbiID[4:0] == 5'b11000)
+        branch_early = 1;
+    else
+        branch_early = 0;
+    end
+    
     // =====
     // clocks
     // =====
@@ -148,7 +170,10 @@ module datapath(
     end
 
     always @(*) begin
-        jump = PCSel;
+        if(PCSel)
+            flushOut = 2'b11;
+        else
+            flushOut = flushIn;
     end
     always @(*) begin
         Reg_WEn = Reg_WEnWB;
@@ -386,7 +411,11 @@ module datapath(
         endcase
         funct3 = instructMEM[14:12];
         if (nbiMEM[4:0] == 5'b11011 || nbiMEM[4:0] == 5'b11001) begin
-            PCSel = 1; // JAL or JALR
+            if(jump_taken)
+                PCSel = 0;
+            else
+                PCSel = 1; // JAL or JALR
+            branch_resolved = 0;
         end else if (nbiMEM[4:0] == 5'b11000) begin
             case (funct3)
                 3'b000: PCSel = BrEqMEM;
@@ -397,7 +426,12 @@ module datapath(
                 3'b111: PCSel = !BrLTMEM;
                 default: PCSel = 0;
             endcase
+            branch_resolved = 1;
+            actual_taken = PCSel;
+            if(jump_taken)
+                PCSel = 0;
         end else begin
+            branch_resolved = 0;
             PCSel = 0;
         end
       

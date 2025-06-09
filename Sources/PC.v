@@ -21,11 +21,13 @@
 
 
 module PC(
-    input clk,
-    input wire [31:0] PC_ALU_input,
-    input wire PC_select,
-    input wire stall,
-    output reg [31:0] PC
+    input  clk,
+    input  wire [31:0] PC_ALU_input,
+    input  wire PC_select,
+    input  wire stall,
+    input  wire [31:0] PC_Jump, //for early jump/branch
+    input  wire jump_taken, //for early jump/branch
+    output reg  [31:0] PC
     );
     
     initial begin
@@ -37,6 +39,9 @@ module PC(
                 PC <= PC_ALU_input;
             else
                 if(!stall)
-                    PC <= PC + 4;
+                    if(jump_taken != 0)
+                        PC <= PC + PC_Jump - 4;
+                    else
+                        PC <= PC + 4;
         end
 endmodule
