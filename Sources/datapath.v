@@ -43,6 +43,8 @@ module datapath(
     output reg [1:0] forwardA,
     output reg [1:0] forwardB,
     output reg [1:0] forwardDmem,
+    output reg [1:0] forwardBranchA,
+    output reg [1:0] forwardBranchB,
     output wire IDmemRead,
     output wire Reg_WEnMEMo,
     output wire Reg_WEnWBo,
@@ -59,8 +61,8 @@ module datapath(
     
     //branch predict
     output reg branch_resolved,
-    output reg actual_taken
-
+    output reg actual_taken,
+    output reg mispredict
 
 
     );
@@ -100,25 +102,43 @@ module datapath(
         forwardA = 2'b00;
         forwardB = 2'b00;
         forwardDmem = 2'b00;
+        forwardBranchA = 2'b00;
+        forwardBranchB = 2'b00;
+
+        if (nbiEX[4:0] == 5'b11000) begin
+            // Forward for branch comparison only
+            if (Reg_WEnMEM && MEMrd != 0 && MEMrd == rs1_EX)
+                forwardBranchA = 2'b10;
+            else if (Reg_WEnWB && WBrd != 0 && WBrd == rs1_EX)
+                forwardBranchA = 2'b01;
     
-        if (Reg_WEnMEM && MEMrd != 0 && MEMrd == rs1_EX)
-            forwardA = 2'b10;
-        else if (Reg_WEnWB && WBrd != 0 && WBrd == rs1_EX)
-            forwardA = 2'b01;
-    
-        if(dmemRWEX == 1) begin
             if (Reg_WEnMEM && MEMrd != 0 && MEMrd == rs2_EX)
-                forwardDmem = 2'b10;
+                forwardBranchB = 2'b10;
             else if (Reg_WEnWB && WBrd != 0 && WBrd == rs2_EX)
-                forwardDmem = 2'b01;
+                forwardBranchB = 2'b01;
         end
         else begin
-            if (Reg_WEnMEM && MEMrd != 0 && MEMrd == rs2_EX)
-                forwardB = 2'b10;
-            else if (Reg_WEnWB && WBrd != 0 && WBrd == rs2_EX)
-                forwardB = 2'b01;
+            // Normal ALU forwarding
+            if (Reg_WEnMEM && MEMrd != 0 && MEMrd == rs1_EX)
+                forwardA = 2'b10;
+            else if (Reg_WEnWB && WBrd != 0 && WBrd == rs1_EX)
+                forwardA = 2'b01;
+    
+            if (dmemRWEX == 1) begin
+                if (Reg_WEnMEM && MEMrd != 0 && MEMrd == rs2_EX)
+                    forwardDmem = 2'b10;
+                else if (Reg_WEnWB && WBrd != 0 && WBrd == rs2_EX)
+                    forwardDmem = 2'b01;
+            end
+            else begin
+                if (Reg_WEnMEM && MEMrd != 0 && MEMrd == rs2_EX)
+                    forwardB = 2'b10;
+                else if (Reg_WEnWB && WBrd != 0 && WBrd == rs2_EX)
+                    forwardB = 2'b01;
+            end
         end
     end
+    
     
     initial begin
         Reg_WBSelID  = 2'b11;
@@ -136,12 +156,18 @@ module datapath(
     //Early jump/branch
     always @(*) begin
     if (nbiID[4:0] == 5'b11011)
+        begin
         jump_early = 1;
-    else
+        branch_early = 0;
+    end else
+        begin
         jump_early = 0;
+        end
     if (nbiID[4:0] == 5'b11000)
+    begin
         branch_early = 1;
-    else
+        jump_early = 0;
+    end else
         branch_early = 0;
     end
     
@@ -416,6 +442,7 @@ module datapath(
             else
                 PCSel = 1; // JAL or JALR
             branch_resolved = 0;
+            mispredict = 0;
         end else if (nbiMEM[4:0] == 5'b11000) begin
             case (funct3)
                 3'b000: PCSel = BrEqMEM;
@@ -428,11 +455,19 @@ module datapath(
             endcase
             branch_resolved = 1;
             actual_taken = PCSel;
-            if(jump_taken)
+            if(jump_taken && PCSel) begin
                 PCSel = 0;
+                mispredict = 0;
+                end
+            else if(jump_taken && !PCSel) begin
+                PCSel = 1;
+                mispredict = 1;
+                end
         end else begin
+            mispredict = 0;
             branch_resolved = 0;
             PCSel = 0;
+            actual_taken = 0;
         end
       
         end     

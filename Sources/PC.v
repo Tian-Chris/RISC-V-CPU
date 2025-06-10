@@ -27,6 +27,8 @@ module PC(
     input  wire stall,
     input  wire [31:0] PC_Jump, //for early jump/branch
     input  wire jump_taken, //for early jump/branch
+    input  wire mispredict,
+    input  wire [31:0] PC_savedMEM,
     output reg  [31:0] PC
     );
     
@@ -36,7 +38,10 @@ module PC(
     always @(posedge clk)
         begin
             if(PC_select)
-                PC <= PC_ALU_input;
+                if(mispredict)
+                    PC <= PC_savedMEM + 4;
+                else
+                    PC <= PC_ALU_input;
             else
                 if(!stall)
                     if(jump_taken != 0)

@@ -49,7 +49,8 @@ module cpu_top (
   output wire [4:0] rs2_EXo,
   output wire [4:0] MEMrdo,
   output wire [4:0] WBrdo,
-  output wire [1:0] flushOut,
+  output wire [1:0] flushOutO,
+  output wire [2:0] phto,
 
 
   
@@ -65,7 +66,7 @@ module cpu_top (
     wire branch_signed, ALU_BSel, ALU_ASel, dmemRW;
     wire [2:0] funct3, imm_gen_sel;
     wire [3:0] ALU_Sel;
-    wire [1:0] Reg_WBSel, forwardA, forwardB, forwardDmem;
+    wire [1:0] Reg_WBSel, forwardA, forwardB, forwardDmem, forwardBranchA, forwardBranchB;
     wire [4:0] IFrs1 = rs1;
     wire [4:0] IFrs2 = rs2;
     
@@ -87,6 +88,9 @@ module cpu_top (
     wire        branch_resolved;
     wire        actual_taken;
     wire [2:0]  pht_index;
+    wire mispredict;
+    wire PC_saved;
+    wire [1:0] flushOut;
 
     //EX Stage Reg
     reg [31:0] EXinstruct;
@@ -99,7 +103,7 @@ module cpu_top (
     reg [31:0] wdata;
     reg        EXjump_taken;
     reg [2:0]  pht_indexEX;
-
+    reg PC_savedEX;
 
     //MEM Stage Reg
     reg [31:0] MEMinstruct;
@@ -109,6 +113,7 @@ module cpu_top (
     reg [4:0]  MEMrd;        
     reg        MEMjump_taken;
     reg [2:0]  pht_indexMEM;
+    reg PC_savedMEM;
     
     //WB Stage Reg
     reg [31:0] WBinstruct;
@@ -119,17 +124,18 @@ module cpu_top (
    
     //debug
     assign dmempreo = DMEMPreClockData;
-    assign forwardAo = forwardA;
-    assign forwardBo = forwardB;
+    assign forwardAo = jump_taken;
+    assign forwardBo = flushOut[0];
+    assign phto = pht_indexMEM;
     assign MEMAluo = MEMAlu;
     assign wdatao = wdata;
     assign MEMrdo = MEMrd;
     assign WBrdo = WBrd;
     assign MEMrdata2O = MEMrdata2;
-
+    assign flushOutO = flushOut;
     // IF-ID
     always @(posedge clk) begin
-        if (!stall) begin
+        if (!(stall)) begin
             IDinstruct <= instruction;
             IDPC <= pc;
             IDrs1 <= rs1;
@@ -152,6 +158,8 @@ module cpu_top (
             EXimm <= imm;
             EXrd <= IDrd;
             EXjump_taken <= jump_taken;
+            pht_indexEX <= pht_index;
+            PC_savedEX <= PC_saved;
     end
         
     //forwarding into dmem
@@ -169,6 +177,8 @@ module cpu_top (
         MEMAlu <= alu_out;
         MEMrd <= EXrd;
         MEMjump_taken <= EXjump_taken;
+        pht_indexMEM <= pht_indexEX;
+        PC_savedMEM <= PC_savedEX;
     end
         
     //MEM-WB
@@ -182,18 +192,24 @@ module cpu_top (
     
     //Flush
     always @(posedge clk) begin
-    if (flushOut == 2'b11) begin
-        IDinstruct <= 32'h00000013; // NOP
-        IDrs1 <= 5'b0;              // Don't read any reg
-        IDrs2 <= 5'b0;
-        IDrd  <= 5'b0;              // Don't write any reg
-        EXinstruct <= 32'h00000013; // NOP
-        EXrd  <= 5'b0;              // Don't write any reg
-        MEMinstruct <= 32'h00000013; // NOP
-        MEMrd  <= 5'b0;              // Don't write any reg
+        if (flushOut == 2'b11) begin
+            IDinstruct <= 32'h00000013; // NOP
+            IDrs1 <= 5'b0;              // Don't read any reg
+            IDrs2 <= 5'b0;
+            IDrd  <= 5'b0;              // Don't write any reg
+            EXinstruct <= 32'h00000013; // NOP
+            EXrd  <= 5'b0;              // Don't write any reg
+            MEMinstruct <= 32'h00000013; // NOP
+            MEMrd  <= 5'b0;              // Don't write any reg
+        end
+        else if (flushOut == 2'b01)
+        begin
+            IDinstruct <= 32'h00000013; // NOP
+            IDrs1 <= 5'b0;              // Don't read any reg
+            IDrs2 <= 5'b0;
+            IDrd  <= 5'b0;              // Don't write any reg
+        end
     end
-end   
-
   // Program Counter
   PC PC (
     .clk(clk),
@@ -202,6 +218,8 @@ end
     .PC_Jump(PC_Jump),
     .jump_taken(jump_taken),
     .PC(pc),
+    .PC_savedMEM(PC_savedMEM),
+    .mispredict(mispredict),
     .stall(stall)
   );
 
@@ -223,6 +241,7 @@ end
   
   //early jump/branch predictor handler
   jump_branch_unit BP (
+    .clk(clk),
     .jump_early(jump_early),
     .branch_early(branch_early),
     .immID(imm),
@@ -233,7 +252,8 @@ end
     .pht_indexMEM(pht_indexMEM),
     .PC_Jump(PC_Jump),
     .flush(flush),
-    .jump_taken(jump_taken)
+    .jump_taken(jump_taken),
+    .PC_saved(PC_saved)
   );
   
   // Datapath Controller
@@ -257,11 +277,14 @@ end
     .forwardA(forwardA),
     .forwardB(forwardB),
     .forwardDmem(forwardDmem),
+    .forwardBranchA(forwardBranchA),
+    .forwardBranchB(forwardBranchB),
     .Reg_WBSelID(Reg_WBSelID),
     .Reg_WBSelEX(Reg_WBSelEX),
     .jump_taken(MEMjump_taken),
     .jump_early(jump_early),
     .branch_early(branch_early),
+    .mispredict(mispredict),
     .flushIn(flush),
     .flushOut(flushOut),
     .IDmemRead(IDmemRead),
@@ -330,7 +353,14 @@ end
     .rdata1(EXrdata1),
     .rdata2(EXrdata2),
     .equal(brEq),
-    .less_than(brLt)
+    .less_than(brLt),
+    .forwardBranchA(forwardBranchA),
+    .forwardBranchB(forwardBranchB),
+    .MEMAlu(MEMAlu),
+    .WBdmem(WBdmem),
+    .WBAlu(WBAlu),
+    .WBPC(WBPC),
+    .WBSel(Reg_WBSel)
   );
   
   // Data Memory
