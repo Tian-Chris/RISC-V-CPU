@@ -28,10 +28,7 @@ module dmem(
     input wire [31:0] wdata,
     output reg [31:0] rdata,
     output wire exception,
-    output wire [3:0] exception_code,
-    
-    //debug
-    output wire [31:0] dmem_out
+    output wire [3:0] exception_code
     );
 
     reg [31:0] dmem [127:0];
@@ -103,5 +100,4 @@ module dmem(
             endcase
             end
         end
-    assign dmem_out = rdata;
 endmodule

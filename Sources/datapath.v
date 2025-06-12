@@ -46,12 +46,8 @@ module datapath(
     output reg [1:0] forwardBranchA,
     output reg [1:0] forwardBranchB,
     output wire IDmemRead,
-    output wire Reg_WEnMEMo,
-    output wire Reg_WEnWBo,
-    output wire [4:0] rs1_EXo,
-    output wire [4:0] rs2_EXo,
-    
-        // load hazard detection
+
+    // load hazard detection
     output reg [1:0] Reg_WBSelID,
     output reg [1:0] Reg_WBSelEX,
     
@@ -64,7 +60,13 @@ module datapath(
     output reg actual_taken,
     output reg mispredict
 
-
+    //debug
+    `ifdef DEBUG
+        , output wire Reg_WEnMEMo,
+        output wire Reg_WEnWBo,
+        output wire [4:0] rs1_EXo,
+        output wire [4:0] rs2_EXo
+    `endif
     );
     
     wire [8:0] nbiID; //nine_bit_instruction
@@ -92,11 +94,8 @@ module datapath(
     reg Reg_WEnEX;
     reg Reg_WEnMEM;
     reg Reg_WEnWB;
-    assign Reg_WEnMEMo = Reg_WEnMEM;
-    assign Reg_WEnWBo = Reg_WEnWB;
-    assign rs1_EXo = rs1_EX;
-    assign rs2_EXo = rs2_EX;
     reg dmemRWEX;
+    
     
     always @(*) begin
         forwardA = 2'b00;
@@ -469,6 +468,12 @@ module datapath(
             PCSel = 0;
             actual_taken = 0;
         end
-      
-        end     
+    end     
+    //debug
+    `ifdef DEBUG
+        assign Reg_WEnMEMo = Reg_WEnMEM;
+        assign Reg_WEnWBo = Reg_WEnWB;
+        assign rs1_EXo = rs1_EX;
+        assign rs2_EXo = rs2_EX;
+    `endif
 endmodule

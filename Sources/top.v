@@ -21,47 +21,36 @@
 
 module cpu_top (
   input wire clk,
-  input wire reset,
+  input wire reset
 
   // Debug outputs
-  output wire [31:0] pc,
-  output wire [31:0] instruction,
-  output wire [31:0] alu_out,
-  output wire [31:0] imm,
-  output wire [31:0] rdata1,
-  output wire [31:0] rdata2,
-  output wire brEq,
-  output wire brLt,
-  output wire Reg_WEn,
-  output wire PCSel,
-  output wire stall,
-  output wire [1:0] Reg_WBSelID,
-  output wire [1:0] Reg_WBSelEX,
-  output wire [31:0] MEMrdata2O,
-  output wire [31:0] dmempreo,
-  output wire [31:0] forwardAo,
-  output wire [31:0] forwardBo,
-  output wire [31:0] MEMAluo,
-  output wire [31:0] wdatao,
-  output wire Reg_WEnMEMo,
-  output wire Reg_WEnWBo,
-  output wire [4:0] rs1_EXo,
-  output wire [4:0] rs2_EXo,
-  output wire [4:0] MEMrdo,
-  output wire [4:0] WBrdo,
-  output wire [1:0] flushOutO,
-  output wire [2:0] phto,
+  `ifdef DEBUG
+    , output wire [31:0] pco, instructiono, alu_outo, immo, rdata1o, rdata2o, MEMrdata2O, 
+                       dmempreo, dmem_out, forwardAo, forwardBo, MEMAluo, wdatao, Out0, 
+                       Out1, Out2, Out3, Out4, Out5, Out6, Out7, Out8, Out9, Out10, Out11, 
+                       Out12, Out13, Out14, Out15, Out16, Out17, Out18, Out19, Out20, Out21, 
+                       Out22, Out23, Out24, Out25, Out26, Out27, Out28, Out29, Out30, Out31,
+    output wire [4:0]  rs1_EXo, rs2_EXo, MEMrdo, WBrdo,
+    output wire [2:0]  phto,
+    output wire [1:0]  Reg_WBSelIDo, Reg_WBSelEXo, flushOuto,
+    output wire brEqo, brLto, Reg_WEno, PCSelo, stallo, Reg_WEnMEMo, Reg_WEnWBo
+  `endif
 
-
-  
-   //output reg
-   output wire [31:0] Out0, Out1, Out2, Out3, Out4, Out5, Out6, Out7, Out8, Out9, 
-                      Out10, Out11, Out12, Out13, Out14, Out15, Out16, Out17, Out18,
-                      Out19, Out20, Out21, Out22, Out23, Out24, Out25, Out26, Out27,
-                      Out28, Out29, Out30, Out31, dmem_out
    );
-   
 
+    wire [31:0] pc;
+    wire [31:0] instruction;
+    wire [31:0] alu_out;
+    wire [31:0] imm;
+    wire [31:0] rdata1;
+    wire [31:0] rdata2;
+    wire brEq;
+    wire brLt;
+    wire Reg_WEn;
+    wire PCSel;
+    wire stall;
+    wire [1:0] Reg_WBSelID;
+    wire [1:0] Reg_WBSelEX;
     wire [4:0] rs1, rs2, rd;
     wire branch_signed, ALU_BSel, ALU_ASel, dmemRW;
     wire [2:0] funct3, imm_gen_sel;
@@ -123,16 +112,33 @@ module cpu_top (
     reg [4:0]  WBrd;
    
     //debug
-    assign dmempreo = DMEMPreClockData;
-    assign forwardAo = jump_taken;
-    assign forwardBo = flushOut[0];
-    assign phto = pht_indexMEM;
-    assign MEMAluo = MEMAlu;
-    assign wdatao = wdata;
-    assign MEMrdo = MEMrd;
-    assign WBrdo = WBrd;
-    assign MEMrdata2O = MEMrdata2;
-    assign flushOutO = flushOut;
+    `ifdef DEBUG
+      assign pco = pc;
+      assign instructiono = instruction; 
+      assign alu_outo = alu_out;
+      assign immo = imm;
+      assign rdata1o = rdata1;
+      assign rdata2o = rdata2;
+      assign brEqo = brEq;
+      assign brLto = brLt;
+      assign Reg_WEno = Reg_WEn;
+      assign PCSelo = PCSel;
+      assign stallo = stall;
+      assign Reg_WBSelIDo = Reg_WBSelID;
+      assign Reg_WBSelEXo = Reg_WBSelEX;
+      assign dmempreo = DMEMPreClockData;
+      assign forwardAo = jump_taken;
+      assign forwardBo = flushOut[0];
+      assign phto = pht_indexMEM;
+      assign MEMAluo = MEMAlu;
+      assign wdatao = wdata;
+      assign MEMrdo = MEMrd;
+      assign WBrdo = WBrd;
+      assign MEMrdata2O = MEMrdata2;
+      assign flushOuto = flushOut;
+    `endif 
+
+    
     // IF-ID
     always @(posedge clk) begin
         if (!(stall)) begin
@@ -289,11 +295,14 @@ module cpu_top (
     .flushOut(flushOut),
     .IDmemRead(IDmemRead),
     .branch_resolved(branch_resolved),
-    .actual_taken(actual_taken),
-    .Reg_WEnMEMo(Reg_WEnMEMo),
-    .Reg_WEnWBo(Reg_WEnWBo),
-    .rs1_EXo(rs1_EXo),
-    .rs2_EXo(rs2_EXo)
+    .actual_taken(actual_taken)
+    
+    `ifdef DEBUG
+      , .Reg_WEnMEMo(Reg_WEnMEMo),
+      .Reg_WEnWBo(Reg_WEnWBo),
+      .rs1_EXo(rs1_EXo),
+      .rs2_EXo(rs2_EXo)
+    `endif
   );    
 
   // Register File
@@ -308,15 +317,18 @@ module cpu_top (
     .ALU_out(WBAlu),
     .dmem_out(WBdmem),
     .rdata1(rdata1),
-    .rdata2(rdata2),
-    .Out0(Out0), .Out1(Out1), .Out2(Out2), .Out3(Out3), 
-    .Out4(Out4), .Out5(Out5), .Out6(Out6), .Out7(Out7), 
-    .Out8(Out8), .Out9(Out9), .Out10(Out10), .Out11(Out11), 
-    .Out12(Out12), .Out13(Out13), .Out14(Out14), .Out15(Out15), 
-    .Out16(Out16), .Out17(Out17), .Out18(Out18), .Out19(Out19), 
-    .Out20(Out20), .Out21(Out21), .Out22(Out22), .Out23(Out23), 
-    .Out24(Out24), .Out25(Out25), .Out26(Out26), .Out27(Out27), 
-    .Out28(Out28), .Out29(Out29), .Out30(Out30), .Out31(Out31)
+    .rdata2(rdata2)
+    
+    `ifdef DEBUG
+      , .Out0(Out0), .Out1(Out1), .Out2(Out2), .Out3(Out3), 
+      .Out4(Out4), .Out5(Out5), .Out6(Out6), .Out7(Out7), 
+      .Out8(Out8), .Out9(Out9), .Out10(Out10), .Out11(Out11), 
+      .Out12(Out12), .Out13(Out13), .Out14(Out14), .Out15(Out15), 
+      .Out16(Out16), .Out17(Out17), .Out18(Out18), .Out19(Out19), 
+      .Out20(Out20), .Out21(Out21), .Out22(Out22), .Out23(Out23), 
+      .Out24(Out24), .Out25(Out25), .Out26(Out26), .Out27(Out27), 
+      .Out28(Out28), .Out29(Out29), .Out30(Out30), .Out31(Out31)
+    `endif
   );
     
   //hazard
@@ -370,12 +382,6 @@ module cpu_top (
     .funct3(funct3),
     .address(MEMAlu),
     .wdata(MEMrdata2),
-    .rdata(dmem_out),
-    .dmem_out(dmem_out)
+    .rdata(dmem_out)
   );
 endmodule
-
-
-//00500093
-//addi x1 x0 5
-//addi x2 x1 10
