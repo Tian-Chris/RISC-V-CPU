@@ -1,0 +1,42 @@
+//unused
+//wire [31:0] csrzero, mvendorid, marchid, mimpid, mhartid;
+//wire [31:0] mvendorid_MASK, marchid_MASK, mimpid_MASK, mhartid_MASK;
+//wire [11:0] mvendorid_ADDR, marchid_ADDR, mimpid_ADDR, mhartid_ADDR;
+//assign csrzero        = 32'b0;
+//assign mvendorid      = csrzero;
+//assign marchid        = csrzero;
+//assign mimpid         = csrzero;
+//assign mhartid        = csrzero;
+//assign mvendorid_MASK = csrzero;
+//assign marchid_MASK   = csrzero;
+//assign mimpid_MASK    = csrzero;
+//assign mhartid_MASK   = csrzero;
+
+//mstatus == 
+// 0     -  WPRI
+// 1     -  SIE    supervisor interrupt enable
+// 2     -  WPRI
+// 3     -  MIE
+// 4     -  WPRI
+// 5     -  SPIE   supervisor previous interrupt enable
+// 6     -  UBE    user big endianness 1 for big endian 0 for little
+// 7     -  MPIE   Machine Previous Interrup Enable
+// 8     -  SPP    Supervisor Previous Privilege Mode
+// 9:10  -  VS[1:0]  Vector Status (00 for me)
+// 11:12 -  MPP[1:0] Machine Previous Privilege
+// 13:14 -  FS[1:0]  Floating Point Status (00 for me)
+// 15:16 -  XS[1:0]  User Extension Status (00)
+// 17    -  MPRV  Modify PRiVilege (1 - effective priv = MPP, 0 - effective priv = current priv)
+// 18    -  SUM   Supervisor User Memory access (1 doesn't allow S access U pages, 0 allows S access U pages)
+// 19    -  MXR   Make eXecutable Readable
+// 20    -  TVM   Trap Virtual Memory
+// 21    -  TW    Timeout Wait (1 - causes an exception if wait takes a certain time)
+// 22    -  TSR   Trap SRET (traps when sret inside S)
+// 23:30 -  WPRI
+// 31    -  SD    State Dirty (0 if VS FS XS are all 0 else 1)
+
+//mstatush
+// 0:3   -  WPRI
+// 4     -  SBE   Supervisor Big Endianness
+// 5     -  MBE   Machine    Big Endianness
+// 31:6  -  WPRI
