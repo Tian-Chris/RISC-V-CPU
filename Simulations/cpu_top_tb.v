@@ -92,7 +92,7 @@ module cpu_top_tb;
   // Instantiate the CPU Top
   cpu_top uut (
     .clk(clk),
-    .reset(reset),
+    .rst(reset),
     .pco(pc),
     .instructiono(instruction),
     .alu_outo(alu_out),

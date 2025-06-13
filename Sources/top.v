@@ -21,8 +21,7 @@
 
 module cpu_top (
   input wire clk,
-  input wire reset
-
+  input wire rst
   // Debug outputs
   `ifdef DEBUG
     , output wire [31:0] pco, instructiono, alu_outo, immo, rdata1o, rdata2o, MEMrdata2O, 
@@ -37,7 +36,17 @@ module cpu_top (
   `endif
 
    );
-
+   // ===========
+   //  Privilege
+   // ===========
+    reg [1:0] pLevel;
+    always @(posedge clk or posedge rst) begin
+        if (rst)
+            pLevel <= 2'b00;
+        else begin
+        end
+    end
+    
     wire [31:0] pc;
     wire [31:0] instruction;
     wire [31:0] alu_out;
@@ -78,7 +87,7 @@ module cpu_top (
     wire        actual_taken;
     wire [2:0]  pht_index;
     wire mispredict;
-    wire PC_saved;
+    wire [31:0] PC_saved;
     wire [1:0] flushOut;
 
     //EX Stage Reg
@@ -102,7 +111,7 @@ module cpu_top (
     reg [4:0]  MEMrd;        
     reg        MEMjump_taken;
     reg [2:0]  pht_indexMEM;
-    reg PC_savedMEM;
+    reg [31:0] PC_savedMEM;
     
     //WB Stage Reg
     reg [31:0] WBinstruct;
