@@ -35,9 +35,30 @@
 `define CSR_OPP_RCI      4'b0110
 
 `define mstatus_ADDR     12'h300
-`define mstatus_RMASK    32'b1000_0000_0111_1111_1111_1111_1110_1010
-`define mstatus_WMASK    32'b1000_0000_0111_1111_1111_1111_1110_1010
+`define mstatus_MASK     32'b1000_0000_0111_1111_1111_1111_1110_1010
 `define mstatush_ADDR    12'h310
-`define mstatush_RMASK   32'b0000_0000_0000_0000_0000_0000_0001_1000
-`define mstatush_WMASK   32'b0000_0000_0000_0000_0000_0000_0001_1000
- 
+`define mstatush_MASK    32'b0000_0000_0000_0000_0000_0000_0001_1000
+`define misa_ADDR        12'h301
+`define misa_MASK        32'h11111111
+`define medeleg_ADDR     12'h302
+`define medeleg_MASK     32'h11111111
+`define mideleg_ADDR     12'h303
+`define mideleg_MASK     32'h11111111
+`define mie_ADDR         12'h304
+`define mie_MASK         32'h11111111 //note
+`define mtvec_ADDR       12'h305
+`define mtvec_MASK       32'hFFFFFFFF
+`define mscratch_ADDR    12'h340
+`define mscratch_MASK    32'hFFFFFFFF
+`define mepc_ADDR        12'h341
+`define mepc_MASK        32'hFFFFFFFF
+`define mcause_ADDR      12'h342
+`define mcause_MASK      32'h8000000F
+`define mtval_ADDR       12'h343
+`define mtval_MASK       32'hFFFFFFFF
+`define mip_ADDR         12'h344
+`define mip_MASK         32'hFFFFFFFF //note irq
+`define mcycle_ADDR      12'hB00
+`define mcycle_MASK      32'hFFFFFFFF
+`define mhartid_ADDR     12'hF14
+`define mhartid_MASK     32'hFFFFFFFF

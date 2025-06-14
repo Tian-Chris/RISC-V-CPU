@@ -62,7 +62,6 @@ module jump_branch_unit(
             // Update GHR
             GHR <= {GHR[1:0], actual_taken};
 
-            // Debug output
             $display("[BRANCH RESOLVED] GHR: %b | Updating PHT[%0d] => %b | actual_taken = %b", 
                      GHR, pht_indexMEM, PHT[pht_indexMEM], actual_taken);
         end
