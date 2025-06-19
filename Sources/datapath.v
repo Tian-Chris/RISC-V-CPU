@@ -278,6 +278,7 @@ module datapath(
             // U-type
             9'b?_???_00101: uses_reg = 2'b00; //aiupc
             9'b?_???_01101: uses_reg = 2'b00; // LUI
+            9'b?_???_11100: uses_reg = 2'b01; //csr
             default: uses_reg = 2'b00;
        endcase
        
@@ -304,6 +305,7 @@ module datapath(
             // U-type
             9'b?_???_00101: Reg_WEnID = 1'b1; //aiupc
             9'b?_???_01101: Reg_WEnID = 1'b1; // LUI
+            9'b?_???_11100: Reg_WEnID = 1'b1; // csr
             default: Reg_WEnID = 1'b0;
         endcase
         

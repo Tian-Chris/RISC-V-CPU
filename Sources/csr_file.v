@@ -13,15 +13,31 @@ module csr_file (
     input  wire        csr_ren,
     input  wire [11:0] csr_raddr,
     output wire [31:0] csr_rdata,
-    output wire [31:0] csr_status
-
+    output wire [31:0] csr_status,
+    
+    //exception
+    input  wire [31:0] csr_trapPC,
+    input  wire [5:0]  csr_trapID,
+    input  wire        csr_ecall,
+    input  wire        csr_mret,
+    
+    //trap branch
+    output reg         csr_branch_signal,
+    output reg [31:0]  csr_branch_address,
+    
+    //trap branch forwarding
+    input wire [11:0] csr_addr_EX,
+    input wire [31:0] csr_rdata_EX,
+    input wire [11:0] csr_addr_MEM,
+    input wire [31:0] csr_rdata_MEM
 );
 `include "csr_defs.v"
 
 //all unused mvendorid marchid mimpid mhartid
 reg [31:0] csrzero;  
 
-//current
+//future
+reg [1:0]  priv_f;
 reg [31:0] mstatus_f;
 reg [31:0] mstatush_f;
 reg [31:0] misa_f;
@@ -38,6 +54,7 @@ reg [31:0] mcycle_f;
 reg [31:0] mcycleh_f;
 
 //current
+reg [1:0]  priv_c;
 reg [31:0] mstatus_c;
 reg [31:0] mstatush_c;
 reg [31:0] misa_c;
@@ -77,26 +94,12 @@ always @(*) begin
     endcase
     end
 end
+
 assign csr_rdata = rdata;
 assign csr_status = mstatus_c;
 
 //write back
 always @(*) begin
-    mstatus_f  = mstatus_c;
-    mstatush_f = mstatush_c;
-    misa_f     = misa_c;
-    medeleg_f  = medeleg_c;
-    mideleg_f  = mideleg_c;
-    mie_f      = mie_c;
-    mtvec_f    = mtvec_c;
-    mscratch_f = mscratch_c;
-    mepc_f     = mepc_c;
-    mcause_f   = mcause_c;
-    mtval_f    = mtval_c;
-    mip_f      = mip_c;
-    mcycle_f   = mcycle_c;
-    mcycleh_f  = mcycleh_c;
-
     if(csr_wen) begin
     case(csr_waddr)
         `mstatus_ADDR:   mstatus_f  = (mstatus_f  & ~`mstatus_MASK)  | (csr_wdata & `mstatus_MASK);
@@ -119,8 +122,13 @@ always @(*) begin
 end
 
 always @(posedge clk or posedge rst) begin
+    `ifdef DEBUG
+        $display("csr_wen: %b, csr_wdata: %b, csr_waddr: %b", csr_wen, csr_wdata, csr_waddr);
+        $display("CSR => PC: %h | mtvec: %h | mpec: %h | csr_rdata_EX: %h | csr_rdata_MEM: %h | csr_addr_EX: %h | csr_addr_MEM: %h", csr_trapPC, mtvec_c, mepc_c, csr_rdata_EX, csr_rdata_MEM, csr_addr_EX, csr_addr_MEM);
+    `endif
     if (rst) begin
         csrzero    <= 32'b0;
+        priv_c     <= `PRIV_MACHINE;
         mstatus_c  <= 32'b0;
         mstatush_c <= 32'b0;
         misa_c     <= 32'b0;
@@ -137,6 +145,7 @@ always @(posedge clk or posedge rst) begin
         mcycleh_c  <= 32'b0;
     end else
     begin
+        priv_c     <= priv_f;
         mstatus_c  <= mstatus_f;
         mstatush_c <= mstatush_f;
         misa_c     <= misa_f;
@@ -151,6 +160,95 @@ always @(posedge clk or posedge rst) begin
         mip_c      <= mip_f;
         mcycle_c   <= mcycle_f;
         mcycleh_c  <= mcycleh_f;
+    end
+end
+
+reg [5:0] csr_trapID_temp;
+//trap handling
+always @(*) begin
+    priv_f     = priv_c;
+    mstatus_f  = mstatus_c;
+    mstatush_f = mstatush_c;
+    misa_f     = misa_c;
+    medeleg_f  = medeleg_c;
+    mideleg_f  = mideleg_c;
+    mie_f      = mie_c;
+    mtvec_f    = mtvec_c;
+    mscratch_f = mscratch_c;
+    mepc_f     = mepc_c;
+    mcause_f   = mcause_c;
+    mtval_f    = mtval_c;
+    mip_f      = mip_c;
+    mcycle_f   = mcycle_c;
+    if(mcycleh_c == 32'hFFFFFFFF)
+        mcycleh_f  = mcycleh_c + 1;
+    else
+        mcycleh_f  = mcycleh_c;
+    
+    //exceptions
+    csr_trapID_temp = csr_trapID;
+    if(csr_ecall) begin
+        $display("ECALL => PC: %h | mtvec: %h | mpec: %h", csr_trapPC, mtvec_c, mepc_c);
+    
+        case(priv_c)
+            `PRIV_USER: csr_trapID_temp     = `EXCEPT_ECALL_U;
+            `PRIV_SUPER: csr_trapID_temp    = `EXCEPT_ECALL_S;
+            `PRIV_MACHINE: csr_trapID_temp  = `EXCEPT_ECALL_M;
+        endcase
+    end
+    if(csr_trapID_temp != 0) begin
+        $display("TRAP => PC: %h | mtvec: %h | mpec: %h", csr_trapPC, mtvec_c, mepc_c);
+        mstatus_f[`MSTATUS_MPIE] = mstatus_f[`MSTATUS_MIE];
+        mstatus_f[`MSTATUS_MPP]  = priv_c;
+        mstatus_f[`MSTATUS_MIE]  = 1'b0;
+        mcause_f                 = {27'b0, csr_trapID_temp[4:0]};
+        mepc_f                   = csr_trapPC;
+//        //this doesn't do anything
+        priv_f                   = `PRIV_MACHINE;
+ 
+        case(csr_trapID_temp)
+            `EXCEPT_MISALIGNED_PC: mtval_f = csr_trapPC;
+        endcase
+    end
+    else if(csr_mret) begin
+        $display("MRET => PC: %h | mtvec: %h | mpec: %h | csr_rdata_EX: %h | csr_rdata_MEM: %h | csr_addr_EX: %h | csr_addr_MEM: %h", csr_trapPC, mtvec_c, mepc_c, csr_rdata_EX, csr_rdata_MEM, csr_addr_EX, csr_addr_MEM);
+        priv_f                   = mstatus_f[`MSTATUS_MPP];
+        mstatus_f[`MSTATUS_MIE]  = mstatus_f[`MSTATUS_MPIE];
+        mstatus_f[`MSTATUS_MPIE] = 1'b1;
+        mstatus_f[`MSTATUS_MPP]  = 2'b00;
+     end
+end
+
+
+always @ (posedge clk)
+begin
+    csr_branch_signal       = 1'b0;
+    csr_branch_address      = 32'b0;
+
+    //mret 
+    if (csr_mret)
+    begin    
+        //forwarding
+        csr_branch_signal   = 1'b1;
+        if(csr_addr_EX == `mepc_ADDR)
+            csr_branch_address = csr_rdata_EX;
+        else if(csr_addr_MEM == `mepc_ADDR)
+            csr_branch_address = csr_rdata_MEM;
+        else        
+            csr_branch_address  = mepc_c;
+    end
+
+    //exception
+    else if (csr_trapID_temp)
+    begin
+        //forwarding
+        csr_branch_signal   = 1'b1;
+        if(csr_addr_EX == `mtvec_ADDR)
+            csr_branch_address = csr_rdata_EX;
+        else if(csr_addr_MEM == `mtvec_ADDR)
+            csr_branch_address = csr_rdata_MEM;
+        else        
+            csr_branch_address  = mtvec_c;
     end
 end
 

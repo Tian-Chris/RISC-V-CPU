@@ -52,6 +52,7 @@ module jump_branch_unit(
     end
 
     always @(posedge clk) begin
+    $display("JBU => pc: %h | PCSAVED: %h", pc, PC_saved);
         if (branch_resolved) begin
             // Update PHT
             if (actual_taken && (PHT[pht_indexMEM] != 2'b11))

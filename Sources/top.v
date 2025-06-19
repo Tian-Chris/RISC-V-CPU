@@ -34,18 +34,9 @@ module cpu_top (
     output wire [1:0]  Reg_WBSelIDo, Reg_WBSelEXo, flushOuto,
     output wire brEqo, brLto, Reg_WEno, PCSelo, stallo, Reg_WEnMEMo, Reg_WEnWBo
   `endif
-
    );
-   // ===========
-   //  Privilege
-   // ===========
-    reg [1:0] pLevel;
-    always @(posedge clk or posedge rst) begin
-        if (rst)
-            pLevel <= 2'b00;
-        else begin
-        end
-    end
+   
+   `include "csr_defs.v"
     
     wire [31:0] pc;
     wire [31:0] instruction;
@@ -71,10 +62,19 @@ module cpu_top (
     //ID Stage Reg
     reg [31:0] IDinstruct;
     reg [31:0] IDPC;
-    reg [4:0] IDrs1;
-    reg [4:0] IDrs2;
-    reg [4:0] IDrd;
-    wire IDmemRead;
+    reg [4:0]  IDrs1;
+    reg [4:0]  IDrs2;
+    reg [4:0]  IDrd;
+    wire       IDmemRead;
+    reg [31:0] IDinstCSR;
+    wire pc_misaligned       = (pc[1:0] != 2'b00);
+    reg [5:0]  trapID;
+    always @(*) begin
+        trapID = 6'h00;
+        if (pc_misaligned) begin
+            trapID         = `EXCEPT_MISALIGNED_PC;
+        end
+    end
     
     //early jump/branch
     wire jump_early;
@@ -91,18 +91,22 @@ module cpu_top (
     wire [1:0] flushOut;
 
     //EX Stage Reg
-    reg [31:0] EXinstruct;
-    reg [31:0] EXPC;
-    reg [31:0] EXrdata1;
-    reg [31:0] EXrdata2;
-    reg [31:0] EXimm;
-    reg [4:0]  EXrd;
-    reg [31:0] DMEMPreClockData;
-    reg [31:0] wdata;
-    reg        EXjump_taken;
-    reg [2:0]  pht_indexEX;
-    reg PC_savedEX;
-
+    reg  [31:0] EXinstruct;
+    reg  [31:0] EXPC;
+    reg  [31:0] EXrdata1;
+    reg  [31:0] EXrdata2;
+    reg  [31:0] EXimm;
+    reg  [4:0]  EXrd;
+    reg  [31:0] DMEMPreClockData;
+    reg  [31:0] wdata;
+    reg         EXjump_taken;
+    reg  [2:0]  pht_indexEX;
+    reg  [31:0] PC_savedEX;
+    reg  [31:0] EXinstCSR;
+    wire        EX_csr_reg_en;
+    wire        EX_csr_branch_signal;
+    wire [31:0] EX_csr_branch_address;
+    
     //MEM Stage Reg
     reg [31:0] MEMinstruct;
     reg [31:0] MEMAlu;
@@ -112,6 +116,10 @@ module cpu_top (
     reg        MEMjump_taken;
     reg [2:0]  pht_indexMEM;
     reg [31:0] PC_savedMEM;
+    wire [31:0] MEM_csr_rresult; //result of read
+    reg        MEM_csr_reg_en;
+    wire [31:0] MEM_csr_data_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
+    wire [31:0] MEM_csr_addr_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
     
     //WB Stage Reg
     reg [31:0] WBinstruct;
@@ -119,7 +127,14 @@ module cpu_top (
     reg [31:0] WBPC;
     reg [31:0] WBdmem;
     reg [4:0]  WBrd;
-   
+    reg        WB_csr_reg_en;
+    wire        WB_csr_wben;
+    wire [11:0] WB_csr_wbaddr;   //address written
+    wire [31:0] WB_csr_wbdata;   //data written
+    reg [31:0] WB_csr_rresult; //result of read
+    reg [31:0] WB_csr_data_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
+    reg [31:0] WB_csr_addr_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
+    
     //debug
     `ifdef DEBUG
       assign pco = pc;
@@ -150,13 +165,29 @@ module cpu_top (
     
     // IF-ID
     always @(posedge clk) begin
+         `ifdef DEBUG
+            $display(" ");
+            $display("PC: %h", pc);
+        `endif
         if (!(stall)) begin
-            IDinstruct <= instruction;
-            IDPC <= pc;
-            IDrs1 <= rs1;
-            IDrs2 <= rs2;
-            IDrd <= rd;
-        end else begin
+            if(instruction[6:0] == 7'b1110011) begin
+                IDinstruct <= instruction;
+                IDPC       <= pc;
+                IDrs1      <= rs1;              // Don't read any reg
+                IDrs2      <= 5'b0;
+                IDrd       <= rd;              // Don't write any reg
+                IDinstCSR  <= instruction;
+            end
+            else begin
+                IDinstruct <= instruction;
+                IDPC       <= pc;
+                IDrs1      <= rs1;
+                IDrs2      <= rs2;
+                IDrd       <= rd;
+                IDinstCSR  <= 32'b0;
+            end
+        end 
+        else begin
             IDinstruct <= 32'h00000013; // NOP
             IDrs1 <= 5'b0;              // Don't read any reg
             IDrs2 <= 5'b0;
@@ -166,15 +197,16 @@ module cpu_top (
 
     // ID-EX
     always @(posedge clk) begin
-            EXinstruct <= IDinstruct;
-            EXPC <= IDPC;
-            EXrdata1 <= rdata1;
-            EXrdata2 <= rdata2;
-            EXimm <= imm;
-            EXrd <= IDrd;
+            EXinstruct   <= IDinstruct;
+            EXPC         <= IDPC;
+            EXrdata1     <= rdata1;
+            EXrdata2     <= rdata2;
+            EXimm        <= imm;
+            EXrd         <= IDrd;
             EXjump_taken <= jump_taken;
-            pht_indexEX <= pht_index;
-            PC_savedEX <= PC_saved;
+            pht_indexEX  <= pht_index;
+            PC_savedEX   <= PC_saved;
+            EXinstCSR    <= IDinstCSR;
     end
         
     //forwarding into dmem
@@ -194,15 +226,21 @@ module cpu_top (
         MEMjump_taken <= EXjump_taken;
         pht_indexMEM <= pht_indexEX;
         PC_savedMEM <= PC_savedEX;
+        MEM_csr_reg_en <= EX_csr_reg_en;
     end
         
     //MEM-WB
     always @(posedge clk) begin
-        WBPC <= MEMPC;
-        WBdmem <= dmem_out;
-        WBAlu <= MEMAlu;
-        WBinstruct <= MEMinstruct;
-        WBrd <= MEMrd;
+        WBPC              <= MEMPC;
+        WBdmem            <= dmem_out;
+        WBAlu             <= MEMAlu;
+        WBinstruct        <= MEMinstruct;
+        WBrd              <= MEMrd;
+        WB_csr_rresult    <= MEM_csr_rresult; //result of read
+        WB_csr_reg_en     <= MEM_csr_reg_en;
+        WB_csr_data_to_wb <= MEM_csr_data_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
+        WB_csr_addr_to_wb <= MEM_csr_addr_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
+    
     end
     
     //Flush
@@ -235,9 +273,10 @@ module cpu_top (
     .PC(pc),
     .PC_savedMEM(PC_savedMEM),
     .mispredict(mispredict),
-    .stall(stall)
+    .stall(stall),
+    .EX_csr_branch_signal(EX_csr_branch_signal),
+    .EX_csr_branch_address(EX_csr_branch_address)
   );
-
   // Instruction Memory
   imem IMEM (
     .PC(pc),
@@ -326,7 +365,14 @@ module cpu_top (
     .ALU_out(WBAlu),
     .dmem_out(WBdmem),
     .rdata1(rdata1),
-    .rdata2(rdata2)
+    .rdata2(rdata2),
+    .WB_csr_reg_en(WB_csr_reg_en),
+    .WB_csr_wben(WB_csr_wben),
+    .WB_csr_wbaddr(WB_csr_wbaddr),   //address written
+    .WB_csr_wbdata(WB_csr_wbdata),   //data written
+    .WB_csr_rresult(WB_csr_rresult), //result of read
+    .WB_csr_data_to_wb(WB_csr_data_to_wb),  //csr_data_to_wb -> WB -> csr_wdata 
+    .WB_csr_addr_to_wb(WB_csr_addr_to_wb)  //csr_data_to_wb -> WB -> csr_wdata 
     
     `ifdef DEBUG
       , .Out0(Out0), .Out1(Out1), .Out2(Out2), .Out3(Out3), 
@@ -339,7 +385,34 @@ module cpu_top (
       .Out28(Out28), .Out29(Out29), .Out30(Out30), .Out31(Out31)
     `endif
   );
-    
+
+ 
+  //csr handler
+  csr_handler CSR (
+  .clk(clk),
+  .rst(rst),
+  .csr_trapID(trapID),
+  .csr_trapPC(pc),
+  .flush(flushOut),
+  .csr_inst(EXinstCSR),
+  .csr_rs1(EXrdata1),
+  .csr_reg_en(EX_csr_reg_en),
+  .csr_wben(WB_csr_wben),
+  .csr_wbaddr(WB_csr_wbaddr),   //address written
+  .csr_wbdata(WB_csr_wbdata),   //data written
+  .csr_rresult(MEM_csr_rresult), //result of read
+  .csr_data_to_wb(MEM_csr_data_to_wb),  //csr_data_to_wb -> WB -> csr_wdata 
+  .csr_addr_to_wb(MEM_csr_addr_to_wb),  //csr_data_to_wb -> WB -> csr_wdata 
+  .csr_branch_signal(EX_csr_branch_signal),
+  .csr_branch_address(EX_csr_branch_address),
+  .MEMAlu(MEMAlu),
+  .WBdmem(WBdmem),
+  .WBAlu(WBAlu),
+  .WBPC(WBPC),
+  .WBSel(Reg_WBSel),
+  .forwardA(forwardA)
+  );
+  
   //hazard
   hazard_unit HAZARD (
     .IFrs1(IFrs1),
