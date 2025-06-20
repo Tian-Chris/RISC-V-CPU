@@ -131,9 +131,12 @@ always @(*) begin
         csr_rdata_forward = csr_rdata;
 end
 
-always @(posedge clk or posedge rst) begin
-    $display("CSR Write => WBSel: %b | WBdmem: %h | WBAlu: %h | MEMAlu: %h | WBPC+4: %h | wdata: %h | forwardA: %b | csr_rs1: %h | csr_rs1_val: %h",
-         WBSel, WBdmem, WBAlu, MEMAlu, WBPC + 4, wdata, forwardA, csr_rs1, csr_rs1_val);
+always @(posedge clk) begin
+    `ifdef DEBUG
+        $display("CSR Write => WBSel: %b | WBdmem: %h | WBAlu: %h | MEMAlu: %h | WBPC+4: %h | wdata: %h | forwardA: %b | csr_rs1: %h | csr_rs1_val: %h",
+            WBSel, WBdmem, WBAlu, MEMAlu, WBPC + 4, wdata, forwardA, csr_rs1, csr_rs1_val);
+    `endif 
+
     if(rst) begin
         csr_rdata_clocked <= 32'b0;
         csr_raddr_clocked <= 32'b0;
@@ -169,7 +172,7 @@ always @(*) begin
     end
 end
 always @(posedge clk) begin
-    if(flush == 2'b11) begin
+    if(flush == 2'b11 || rst) begin
         csr_addr_MEM <= 0;
         csr_rdata_MEM <= 0;
     end

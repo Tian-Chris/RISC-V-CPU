@@ -22,6 +22,7 @@
 
 module datapath(
     input wire clk,
+    input wire rst,
     input wire [31:0] instruct, //ID
     input wire brEq,
     input wire brLt,
@@ -68,7 +69,8 @@ module datapath(
         output wire [4:0] rs2_EXo
     `endif
     );
-    
+    `include "csr_defs.v"
+
     wire [8:0] nbiID; //nine_bit_instruction
     wire [8:0] nbiEX; //nine_bit_instruction
     wire [8:0] nbiMEM; //nine_bit_instruction
@@ -147,16 +149,16 @@ module datapath(
     assign IDmemRead = (Reg_WBSelID == 2'b00);
     
     //           funct7        funct3          oppcode (without last 2 bits)
-    assign nbiID = {instruct[30], instruct[14:12], instruct[6:2]};
-    assign nbiEX = {instructEX[30], instructEX[14:12], instructEX[6:2]};
+    assign nbiID  = {instruct[30],    instruct[14:12],    instruct[6:2]};
+    assign nbiEX  = {instructEX[30],  instructEX[14:12],  instructEX[6:2]};
     assign nbiMEM = {instructMEM[30], instructMEM[14:12], instructMEM[6:2]};
-    assign nbiWB = {instructWB[30], instructWB[14:12], instructWB[6:2]};
+    assign nbiWB  = {instructWB[30],  instructWB[14:12],  instructWB[6:2]};
 
     //Early jump/branch
     always @(*) begin
     //clear
     if(flushOut == 2'b11) begin
-        instructEX <= 32'h00000013; // NOP
+        instructEX <= `INST_NOP;
     end
     
     if (nbiID[4:0] == 5'b11011)
@@ -180,23 +182,46 @@ module datapath(
     // =====
     //ex
     always @(posedge clk) begin
-        instructEX <= instruct;
-        Reg_WEnEX <= Reg_WEnID;
-        Reg_WBSelEX <= Reg_WBSelID;
+        if(rst) begin
+            instructEX  <= `INST_NOP;
+            Reg_WEnEX   <= 1'h0;
+            Reg_WBSelEX <= 2'h0;
+        end
+        else begin
+            instructEX  <= instruct;
+            Reg_WEnEX   <= Reg_WEnID;
+            Reg_WBSelEX <= Reg_WBSelID;
+        end
     end
     //mem
     always @(posedge clk) begin
-        instructMEM <= instructEX;
-        Reg_WEnMEM <= Reg_WEnEX;
-        Reg_WBSelMEM <= Reg_WBSelEX;
-        BrEqMEM <= brEq;
-        BrLTMEM <= brLt;
+        if(rst) begin
+            instructMEM  <= `INST_NOP;
+            Reg_WEnMEM   <= 1'h0;
+            Reg_WBSelMEM <= 2'h0;
+            BrEqMEM      <= 1'h0;
+            BrLTMEM      <= 1'h0;
+        end
+        else begin
+            instructMEM  <= instructEX;
+            Reg_WEnMEM   <= Reg_WEnEX;
+            Reg_WBSelMEM <= Reg_WBSelEX;
+            BrEqMEM      <= brEq;
+            BrLTMEM      <= brLt;
+        end
     end
     //wb
     always @(posedge clk) begin
-        instructWB <= instructMEM;
-        Reg_WEnWB <= Reg_WEnMEM;
-        Reg_WBSelWB <= Reg_WBSelMEM;
+        if(rst) begin
+            instructWB  <= `INST_NOP;
+            Reg_WEnWB   <= 1'h0;
+            Reg_WBSelWB <= 2'h0;
+        end
+        else begin
+            instructWB  <= instructMEM;
+            Reg_WEnWB   <= Reg_WEnMEM;
+            Reg_WBSelWB <= Reg_WBSelMEM;
+        end
     end
 
     always @(*) begin

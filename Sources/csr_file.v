@@ -121,11 +121,12 @@ always @(*) begin
     end
 end
 
-always @(posedge clk or posedge rst) begin
+always @(posedge clk) begin
     `ifdef DEBUG
         $display("csr_wen: %b, csr_wdata: %b, csr_waddr: %b", csr_wen, csr_wdata, csr_waddr);
         $display("CSR => PC: %h | mtvec: %h | mpec: %h | csr_rdata_EX: %h | csr_rdata_MEM: %h | csr_addr_EX: %h | csr_addr_MEM: %h", csr_trapPC, mtvec_c, mepc_c, csr_rdata_EX, csr_rdata_MEM, csr_addr_EX, csr_addr_MEM);
     `endif
+
     if (rst) begin
         csrzero    <= 32'b0;
         priv_c     <= `PRIV_MACHINE;
@@ -143,8 +144,8 @@ always @(posedge clk or posedge rst) begin
         mip_c      <= 32'b0;
         mcycle_c   <= 32'b0;
         mcycleh_c  <= 32'b0;
-    end else
-    begin
+    end 
+    else begin
         priv_c     <= priv_f;
         mstatus_c  <= mstatus_f;
         mstatush_c <= mstatush_f;
@@ -220,36 +221,36 @@ always @(*) begin
 end
 
 
-always @ (posedge clk)
-begin
-    csr_branch_signal       = 1'b0;
-    csr_branch_address      = 32'b0;
+always @(posedge clk) begin
+    if (rst) begin
+        csr_branch_signal  <= 1'b0;
+        csr_branch_address <= 32'b0;
+    end else begin
+        csr_branch_signal  <= 1'b0;
+        csr_branch_address <= 32'b0;
 
-    //mret 
-    if (csr_mret)
-    begin    
-        //forwarding
-        csr_branch_signal   = 1'b1;
-        if(csr_addr_EX == `mepc_ADDR)
-            csr_branch_address = csr_rdata_EX;
-        else if(csr_addr_MEM == `mepc_ADDR)
-            csr_branch_address = csr_rdata_MEM;
-        else        
-            csr_branch_address  = mepc_c;
-    end
-
-    //exception
-    else if (csr_trapID_temp)
-    begin
-        //forwarding
-        csr_branch_signal   = 1'b1;
-        if(csr_addr_EX == `mtvec_ADDR)
-            csr_branch_address = csr_rdata_EX;
-        else if(csr_addr_MEM == `mtvec_ADDR)
-            csr_branch_address = csr_rdata_MEM;
-        else        
-            csr_branch_address  = mtvec_c;
+        //mret
+        if (csr_mret) begin
+            csr_branch_signal  <= 1'b1;
+            //CONSIDER CHANGING THIS IS ERROR PRONE!!!
+            if (csr_addr_EX == `mepc_ADDR)
+                csr_branch_address <= csr_rdata_EX;
+            else if (csr_addr_MEM == `mepc_ADDR)
+                csr_branch_address <= csr_rdata_MEM;
+            else
+                csr_branch_address <= mepc_c;
+        //exception
+        end else if (csr_trapID_temp) begin
+            csr_branch_signal  <= 1'b1;
+            if (csr_addr_EX == `mtvec_ADDR)
+                csr_branch_address <= csr_rdata_EX;
+            else if (csr_addr_MEM == `mtvec_ADDR)
+                csr_branch_address <= csr_rdata_MEM;
+            else
+                csr_branch_address <= mtvec_c;
+        end
     end
 end
+
 
 endmodule

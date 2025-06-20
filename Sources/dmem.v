@@ -21,14 +21,15 @@
 
 
 module dmem(
-    input wire clk,
-    input wire RW, // 1 = write, 0 = read
-    input wire [2:0] funct3,
-    input wire [31:0] address,
-    input wire [31:0] wdata,
-    output reg [31:0] rdata,
-    output wire exception,
-    output wire [3:0] exception_code
+    input  wire        clk,
+    input  wire        rst,
+    input  wire        RW, // 1 = write, 0 = read
+    input  wire [2:0]  funct3,
+    input  wire [31:0] address,
+    input  wire [31:0] wdata,
+    output reg  [31:0] rdata,
+    output wire        exception,
+    output wire [3:0]  exception_code
     );
 
     reg [31:0] dmem [127:0];
@@ -37,7 +38,7 @@ module dmem(
 
     assign exception_code = RW; // read wrong 0, write wrong 1
 
-    always @(posedge clk) begin        
+    always @(posedge clk) begin
         if (RW) begin
             // write
             case(funct3)

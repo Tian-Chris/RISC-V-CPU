@@ -22,6 +22,7 @@
 
 module register(
     input  wire        clk,
+    input  wire        rst,
     input  wire        write_enable,
     input  wire [4:0]  rd, r1, r2,
     input  wire [1:0]  WBSel, // 0-dmem_out 1-ALU_out 2-PC + 4
@@ -61,27 +62,26 @@ module register(
     assign WB_csr_wbaddr = (WB_csr_reg_en == 1) ? WB_csr_addr_to_wb : 1'b0;
     assign WB_csr_wbdata = (WB_csr_reg_en == 1) ? WB_csr_data_to_wb : 1'b0;
 
-    // Ensure x0 is always zero
-    integer i;
-    initial begin
-       RegData[0] = 0;
-    end
-
     // Write operation
     always @(posedge clk) begin
-        `ifdef DEBUG
-            $display("rd: %b,r1: %b,r2: %b, wdata: %h, write_enable: %b, write_enable_I: %b, WB_csr_reg_en: %b, WB_csr_rresult: %h, WB_csr_data_to_wb: %h, WB_csr_wbaddr: %h", rd, r1, r2, wdata, write_enable, write_enable_I, WB_csr_reg_en, WB_csr_rresult, WB_csr_data_to_wb, WB_csr_wbaddr);
-        `endif
-        if (write_enable_I && rd != 0)
-            RegData[rd] <= wdata;
+        if(rst) begin
+            RegData[0] = 0;
+        end
+        else begin
+            `ifdef DEBUG
+                $display("rd: %b,r1: %b,r2: %b, wdata: %h, write_enable: %b, write_enable_I: %b, WB_csr_reg_en: %b, WB_csr_rresult: %h, WB_csr_data_to_wb: %h, WB_csr_wbaddr: %h", rd, r1, r2, wdata, write_enable, write_enable_I, WB_csr_reg_en, WB_csr_rresult, WB_csr_data_to_wb, WB_csr_wbaddr);
+            `endif
+            if (write_enable_I && rd != 0)
+                RegData[rd] <= wdata;
+        end
     end
 
     // Combinational read
     assign rdata1 = (r1 == 0) ? 32'b0 :
-                ((r1 == rd) && write_enable_I && rd != 0) ? wdata : RegData[r1];
+                    ((r1 == rd) && write_enable_I && rd != 0) ? wdata : RegData[r1];
 
     assign rdata2 = (r2 == 0) ? 32'b0 :
-                ((r2 == rd) && write_enable_I && rd != 0) ? wdata : RegData[r2];
+                    ((r2 == rd) && write_enable_I && rd != 0) ? wdata : RegData[r2];
 
 
     // Debug outputs

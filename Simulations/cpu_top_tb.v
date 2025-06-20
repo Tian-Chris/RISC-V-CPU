@@ -90,7 +90,7 @@ module cpu_top_tb;
   wire [31:0] Out31 = Out[31];
 
   // Instantiate the CPU Top
-  cpu_top uut (
+  cpu_top DUT (
     .clk(clk),
     .rst(reset),
     .pco(pc),
@@ -154,7 +154,9 @@ module cpu_top_tb;
     .Out31(Out[31]),
     .dmem_out(dmem_out)
   );
-
+  initial
+  $readmemh("U:/Documents/RISC-V CPU/Risc.sim/sim_1/behav/xsim/test/test.mem", DUT.IMEM.inst_mem);
+  
   // Clock generation
   initial clk = 0;
   always #10 clk = ~clk;
@@ -162,60 +164,32 @@ module cpu_top_tb;
   // Reset pulse
   initial begin
     reset = 1;
-    #20;
+    #50;
     reset = 0;
   end
 
-  // Golden output checking
-  integer file, i, code;
-  reg [8*64:1] line;
-  reg [31:0] expected;
-  reg [31:0] actual;
-  reg pass;
-
+  // Test monitoring
   integer cycle;
   initial begin
-    // Wait until x11 equals 0x0000c0de
-      // Wait for x11 == 0x0000c0de or timeout after 1000 cycles
-      for (cycle = 0; cycle < 50; cycle = cycle + 1) begin
-        if (Out11 === 32'h0000c0de) begin
-          cycle = 1000;
-        end
-        #20;  // wait one clock cycle (assuming 20ns period)
-      end
-    
-    pass = 1;
-    file = $fopen("U:/Documents/RISC-V CPU/Risc.sim/sim_1/behav/xsim/test/test.golden", "r");
-    if (file == 0) begin
-      $display("ERROR: Could not open golden file:");
-    end
+    cycle = 0;
 
-    for (i = 0; i < 32; i = i + 1) begin
-      if ($fgets(line, file)) begin
-        if (line == "\n" || line == "" || line[8*1-1:0] == "#") begin
-          $display("Skipping x%0d (blank or comment)", i);
-        end
+    while (cycle < 1000) begin
+      #20;  // Wait one clock cycle
+      cycle = cycle + 1;
 
-        code = $sscanf(line, "%h", expected);
-        if (code != 1) begin
-          $display("Skipping x%0d (could not parse line)", i);
+        if(Out17 === 32'd93 && Out3 == 32'b01) begin
+        // a7 == 93, test finished
+        if(Out10 === 32'd0) begin
+          $display("[TEST PASSED]");
+        end else begin
+          $display("[TEST FAILED] gp (x3) = %0d (0x%h)", Out10, Out10);
         end
-
-        actual = Out[i];  // Access output wire
-        if (actual !== expected) begin
-          $display("Mismatch at x%0d: expected %h, got %h", i, expected, actual);
-          pass = 0;
-        end
-      end else begin
-        $display("Skipping x%0d (missing line)", i);
+        $finish;
       end
     end
 
-    $fclose(file);
-    if (pass)
-      $display("[TEST PASSED]");
-    else
-      $display("[TEST FAILED]");
-	$finish;
+    $display("[TIMEOUT] No result after 1000 cycles.");
+    $finish;
   end
+
 endmodule

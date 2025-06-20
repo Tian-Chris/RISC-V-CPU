@@ -21,6 +21,7 @@
 
 module jump_branch_unit( 
     input  wire        clk,
+    input  wire        rst,
     input  wire        jump_early,
     input  wire        branch_early,
     input  wire [31:0] immID,
@@ -45,15 +46,13 @@ module jump_branch_unit(
     assign PC_saved = pc;
     
     integer i;
-    initial begin
-        GHR <= 3'b000;
-        for (i = 0; i < 16; i = i + 1)
-            PHT[i] <= 2'b01;
-    end
-
     always @(posedge clk) begin
-    $display("JBU => pc: %h | PCSAVED: %h", pc, PC_saved);
-        if (branch_resolved) begin
+        if(rst) begin
+            GHR <= 3'b000;
+            for (i = 0; i < 16; i = i + 1)
+                PHT[i] <= 2'b01;
+        end
+        else if (branch_resolved) begin
             // Update PHT
             if (actual_taken && (PHT[pht_indexMEM] != 2'b11))
                 PHT[pht_indexMEM] <= PHT[pht_indexMEM] + 1;
@@ -62,26 +61,27 @@ module jump_branch_unit(
 
             // Update GHR
             GHR <= {GHR[1:0], actual_taken};
-
-            $display("[BRANCH RESOLVED] GHR: %b | Updating PHT[%0d] => %b | actual_taken = %b", 
-                     GHR, pht_indexMEM, PHT[pht_indexMEM], actual_taken);
+            `ifdef DEBUG
+                $display("[BRANCH RESOLVED] GHR: %b | Updating PHT[%0d] => %b | actual_taken = %b", GHR, pht_indexMEM, PHT[pht_indexMEM], actual_taken);
+            `endif
         end
+        `ifdef DEBUG
+            $display("JBU => pc: %h | PCSAVED: %h", pc, PC_saved);
+        `endif
     end
 
-    reg branch_early_prev;
-    
-    always @(posedge clk) begin
-        branch_early_prev <= branch_early;
-    
-        if (branch_early && !branch_early_prev) begin
-            $display("[PREDICTING] PC = 0x%08h | GHR = %b | pht_index = %b | PHT[%0d] = %b | predict_taken = %b",
-                     pc, GHR, pht_index, pht_index, PHT[pht_index], predict_taken);
+    `ifdef DEBUG
+        reg branch_early_prev;
+        always @(posedge clk) begin
+            branch_early_prev <= branch_early;
+            if (branch_early && !branch_early_prev) begin
+                $display("[PREDICTING] PC = 0x%08h | GHR = %b | pht_index = %b | PHT[%0d] = %b | predict_taken = %b", pc, GHR, pht_index, pht_index, PHT[pht_index], predict_taken);
+            end
         end
-    end
+    `endif
     
     // Output logic
     assign PC_Jump    = (jump_early || predict_taken) ? immID : 32'h00000000;
     assign flush      = (jump_early || predict_taken) ? 2'b01 : 2'b00;
     assign jump_taken = (jump_early || predict_taken);
-
 endmodule

@@ -5,19 +5,15 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 module imem(
-    input wire [31:0] PC,
-    output reg [31:0] inst,
-    output reg [4:0] rd,
-    output reg [4:0] rs1,
-    output reg [4:0] rs2
+    input  wire        rst,
+    input  wire [31:0] PC,
+    output reg  [31:0] inst,
+    output reg  [4:0]  rd,
+    output reg  [4:0]  rs1,
+    output reg  [4:0]  rs2
     );
     
-    reg [7:0] inst_mem [0:3199]; 
-    
-    initial begin
-        $readmemh("U:/Documents/RISC-V CPU/Risc.sim/sim_1/behav/xsim/test/test.mem", inst_mem);
-    end
-    
+    reg [7:0] inst_mem [0:3199];     
     always @(*) begin
         `ifdef ENDIAN_BIG
             inst = {inst_mem[PC], inst_mem[PC + 1], inst_mem[PC + 2], inst_mem[PC + 3]};
