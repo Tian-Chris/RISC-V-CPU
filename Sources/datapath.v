@@ -154,6 +154,11 @@ module datapath(
 
     //Early jump/branch
     always @(*) begin
+    //clear
+    if(flushOut == 2'b11) begin
+        instructEX <= 32'h00000013; // NOP
+    end
+    
     if (nbiID[4:0] == 5'b11011)
         begin
         jump_early = 1;
