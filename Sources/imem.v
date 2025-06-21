@@ -5,6 +5,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 module imem(
+    input  wire        clk,
     input  wire        rst,
     input  wire [31:0] PC,
     output reg  [31:0] inst,
@@ -14,6 +15,8 @@ module imem(
     );
     
     reg [7:0] inst_mem [0:3199];     
+
+        
     always @(*) begin
         `ifdef ENDIAN_BIG
             inst = {inst_mem[PC], inst_mem[PC + 1], inst_mem[PC + 2], inst_mem[PC + 3]};

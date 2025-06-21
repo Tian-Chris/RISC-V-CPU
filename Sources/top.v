@@ -329,6 +329,8 @@ module cpu_top (
 
   // Instruction Memory
   imem IMEM (
+    .clk(clk),
+    .rst(rst),
     .PC(pc),
     .inst(instruction),
     .rd(rd),
@@ -510,7 +512,7 @@ module cpu_top (
     .WBSel(Reg_WBSel)
   );
   
-  // Data Memory
+  // Data Memoryz
   dmem DMEM (
     .clk(clk),
     .rst(rst),

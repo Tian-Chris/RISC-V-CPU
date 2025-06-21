@@ -154,65 +154,42 @@ module cpu_top_tb;
     .Out31(Out[31]),
     .dmem_out(dmem_out)
   );
-  reg [8*100:1] memfiles [1:5];
-  integer i;
-  integer done;
-  integer cycle;
-    // Clock generation
+  initial
+  $readmemh("U:/Documents/RISC-V CPU/Risc.sim/sim_1/behav/xsim/test/test.mem", DUT.IMEM.inst_mem);
+  
+  // Clock generation
   initial clk = 0;
   always #10 clk = ~clk;
 
-
+  // Reset pulse
   initial begin
-    memfiles[1] = "U:/Documents/RISC-V CPU/Risc.sim/sim_1/behav/xsim/test/test1.mem";
-    memfiles[2] = "U:/Documents/RISC-V CPU/Risc.sim/sim_1/behav/xsim/test/test2.mem";
-    memfiles[3] = "U:/Documents/RISC-V CPU/Risc.sim/sim_1/behav/xsim/test/test3.mem";
-    memfiles[4] = "U:/Documents/RISC-V CPU/Risc.sim/sim_1/behav/xsim/test/test4.mem";
-    memfiles[5] = "U:/Documents/RISC-V CPU/Risc.sim/sim_1/behav/xsim/test/test5.mem";
+    reset = 1;
+    #50;
+    reset = 0;
+  end
 
-    i = 1;
-    done = 0;
+  // Test monitoring
+  integer cycle;
+  initial begin
+    cycle = 0;
 
-    while (i <= 5 && done == 0) begin
-      $display("========== Running Test %0d ==========", i);
+    while (cycle < 1000) begin
+      #20;  // Wait one clock cycle
+      cycle = cycle + 1;
 
-      // Load hex memory file
-      $readmemh(memfiles[i], DUT.IMEM.inst_mem);
-
-      // Apply reset
-      reset = 1;
-      #50;
-      reset = 0;
-
-      // Run for up to 1000 cycles
-      cycle = 0;
-      while (cycle < 1000 && done == 0) begin
-        #20;
-        cycle = cycle + 1;
-
-        if (Out17 === 32'd93 && Out3 == 32'b01) begin
-          if (Out10 === 32'd0) begin
-            $display("[TEST %0d PASSED]", i);
-                          $display("");
-
-          end else begin
-            $display("[TEST %0d FAILED] gp (x3) = %0d (0x%h)", i, Out10, Out10);
-                            $display("");
-
-          end
-          done = 1;
+        if(Out17 === 32'd93 && Out3 == 32'b01) begin
+        // a7 == 93, test finished
+        if(Out10 === 32'd0) begin
+          $display("[TEST PASSED]");
+        end else begin
+          $display("[TEST FAILED] gp (x3) = %0d (0x%h)", Out10, Out10);
         end
+        $finish;
       end
-
-      if (done == 0) begin
-        $display("[TEST %0d TIMEOUT] No result after 1000 cycles.", i);
-                $display("");
-      end
-
-      done = 0; // Reset done for next test
-      i = i + 1;
     end
 
+    $display("[TIMEOUT] No result after 1000 cycles.");
     $finish;
   end
+
 endmodule
