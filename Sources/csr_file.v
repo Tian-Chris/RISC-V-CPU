@@ -52,6 +52,13 @@ reg [31:0] mtval_f;
 reg [31:0] mip_f;
 reg [31:0] mcycle_f;
 reg [31:0] mcycleh_f;
+//supervisor
+reg [31:0] stvec_f;
+reg [31:0] sscratch_f;
+reg [31:0] sepc_f;
+reg [31:0] scause_f;
+reg [31:0] stval_f;
+reg [31:0] satp_f;
 
 //current
 reg [1:0]  priv_c;
@@ -69,11 +76,18 @@ reg [31:0] mtval_c;
 reg [31:0] mip_c;
 reg [31:0] mcycle_c;
 reg [31:0] mcycleh_c;
+//supervisor
+reg [31:0] stvec_c;
+reg [31:0] sscratch_c;
+reg [31:0] sepc_c;
+reg [31:0] scause_c;
+reg [31:0] stval_c;
+reg [31:0] satp_c;
 
 //read
 reg  [31:0] rdata;
 always @(*) begin
-    rdata = 32'b0;
+    rdata = 32'b0; //do i need this?
     if(csr_ren) begin
     case(csr_raddr)
         `mstatus_ADDR:   rdata = (mstatus_c  & `mstatus_MASK);
@@ -90,7 +104,18 @@ always @(*) begin
         `mtval_ADDR:     rdata = (mtval_c    & `mtval_MASK);
         `medeleg_ADDR:   rdata = (medeleg_c  & `medeleg_MASK);
         `mideleg_ADDR:   rdata = (mideleg_c  & `mideleg_MASK);
-        default:         rdata = 32'b0;
+        
+        `sstatus_ADDR:   rdata = (mstatus_c  & `sstatus_MASK);
+        `sie_ADDR:       rdata = (mie_c      & `sie_MASK);
+        `sip_ADDR:       rdata = (mip_c      & `sip_MASK);
+
+        `stvec_ADDR:     rdata = (stvec_c    & `stvec_MASK);
+        `sscratch_ADDR:  rdata = (sscratch_c & `sscratch_MASK);
+        `sepc_ADDR:      rdata = (sepc_c     & `sepc_MASK);
+        `scause_ADDR:    rdata = (scause_c   & `scause_MASK);
+        `stval_ADDR:     rdata = (stval_c    & `stval_MASK);
+        `satp_ADDR:      rdata = (satp_c     & `satp_MASK);
+        default:         rdata = 32'h00000000;
     endcase
     end
 end
@@ -116,6 +141,17 @@ always @(*) begin
         `mtval_ADDR:     mtval_f    = (mtval_f    & ~`mtval_MASK)    | (csr_wdata & `mtval_MASK);
         `medeleg_ADDR:   medeleg_f  = (medeleg_f  & ~`medeleg_MASK)  | (csr_wdata & `medeleg_MASK);
         `mideleg_ADDR:   mideleg_f  = (mideleg_f  & ~`mideleg_MASK)  | (csr_wdata & `mideleg_MASK);
+
+        `sstatus_ADDR:   mstatus_f  = (mstatus_f  & ~`sstatus_MASK)  | (csr_wdata & `sstatus_MASK);
+        `sie_ADDR:       mie_f      = (mie_f      & ~`sie_MASK)      | (csr_wdata & `sie_MASK);
+        `sip_ADDR:       mip_f      = (mip_f      & ~`sip_MASK)      | (csr_wdata & `sip_MASK);       
+
+        `stvec_ADDR:     stvec_f    = (stvec_f    & ~`stvec_MASK)    | (csr_wdata & `stvec_MASK);
+        `sscratch_ADDR:  sscratch_f = (sscratch_f & ~`sscratch_MASK) | (csr_wdata & `sscratch_MASK);
+        `sepc_ADDR:      sepc_f     = (sepc_f     & ~`sepc_MASK)     | (csr_wdata & `sepc_MASK);
+        `scause_ADDR:    scause_f   = (scause_f   & ~`scause_MASK)   | (csr_wdata & `scause_MASK);
+        `stval_ADDR:     stval_f    = (stval_f    & ~`stval_MASK)    | (csr_wdata & `stval_MASK);
+        `satp_ADDR:      satp_f     = (satp_f     & ~`satp_MASK)     | (csr_wdata & `satp_MASK);
         default:         csrzero    = 32'b0;
     endcase
     end
@@ -144,6 +180,13 @@ always @(posedge clk) begin
         mip_c      <= 32'b0;
         mcycle_c   <= 32'b0;
         mcycleh_c  <= 32'b0;
+
+        stvec_c    <= 32'b0;
+        sscratch_c <= 32'b0;
+        sepc_c     <= 32'b0;
+        scause_c   <= 32'b0;
+        stval_c    <= 32'b0;
+        satp_c     <= 32'b0;
     end 
     else begin
         priv_c     <= priv_f;
@@ -161,6 +204,13 @@ always @(posedge clk) begin
         mip_c      <= mip_f;
         mcycle_c   <= mcycle_f;
         mcycleh_c  <= mcycleh_f;
+
+        stvec_c    <= stvec_f;
+        sscratch_c <= sscratch_f;
+        sepc_c     <= sepc_f;
+        scause_c   <= scause_f;
+        stval_c    <= stval_f;
+        satp_c     <= satp_f;
     end
 end
 
@@ -185,6 +235,12 @@ always @(*) begin
         mcycleh_f  = mcycleh_c + 1;
     else
         mcycleh_f  = mcycleh_c;
+    stvec_f    = stvec_c;
+    sscratch_f = sscratch_c;
+    sepc_f     = sepc_c;
+    scause_f   = scause_c;
+    stval_f    = stval_c;
+    satp_f     = satp_c;
     
     //exceptions
     csr_trapID_temp = csr_trapID;
@@ -204,7 +260,7 @@ always @(*) begin
         mstatus_f[`MSTATUS_MIE]  = 1'b0;
         mcause_f                 = {27'b0, csr_trapID_temp[4:0]};
         mepc_f                   = csr_trapPC;
-//        //this doesn't do anything
+        //this doesn't do anything
         priv_f                   = `PRIV_MACHINE;
  
         case(csr_trapID_temp)
@@ -219,7 +275,6 @@ always @(*) begin
         mstatus_f[`MSTATUS_MPP]  = 2'b00;
      end
 end
-
 
 always @(posedge clk) begin
     if (rst) begin
@@ -251,6 +306,4 @@ always @(posedge clk) begin
         end
     end
 end
-
-
 endmodule

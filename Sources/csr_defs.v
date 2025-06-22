@@ -56,6 +56,7 @@
 //===============
 // CSR Addresses
 //===============
+//Machine:
 `define mstatus_ADDR     12'h300
 `define mstatus_MASK     32'b1000_0000_0111_1111_1111_1111_1110_1010
 `define mstatush_ADDR    12'h310
@@ -86,6 +87,29 @@
 `define mcycleh_MASK     32'hFFFFFFFF
 `define mhartid_ADDR     12'hF14
 `define mhartid_MASK     32'hFFFFFFFF
+
+//supervisor
+//same reg
+`define sstatus_ADDR     12'h100
+`define sstatus_MASK     32'b1000_0000_0000_1101_1110_0001_0110_0010
+`define sie_ADDR         12'h104
+`define sie_MASK         32'hFFFFFFFF //
+`define sip_ADDR         12'h144
+`define sip_MASK         32'hFFFFFFFF //
+
+//dif
+`define stvec_ADDR       12'h105
+`define stvec_MASK       32'hFFFFFFFF
+`define sscratch_ADDR    12'h140
+`define sscratch_MASK    32'hFFFFFFFF
+`define sepc_ADDR        12'h141
+`define sepc_MASK        32'hFFFFFFFF
+`define scause_ADDR      12'h142
+`define scause_MASK      32'h8000000F
+`define stval_ADDR       12'h143
+`define stval_MASK       32'hFFFFFFFF
+`define satp_ADDR        12'h180
+`define satp_MASK        32'hFFFFFFFF
 
 // =============
 //  CSR Bits

@@ -60,15 +60,16 @@ module cpu_top (
     wire [4:0]  IFrs2 = rs2;
     
     //ID Stage Reg
-    reg [31:0] IDinstruct;
-    reg [31:0] IDPC;
-    reg [4:0]  IDrs1;
-    reg [4:0]  IDrs2;
-    reg [4:0]  IDrd;
-    wire       IDmemRead;
-    reg [31:0] IDinstCSR;
-    wire       pc_misaligned       = (pc[1:0] != 2'b00);
-    reg [5:0]  trapID;
+    wire  [31:0] IDinstruct;
+    wire  [31:0] IDPC;
+    wire  [4:0]  IDrs1;
+    wire  [4:0]  IDrs2;
+    wire  [4:0]  IDrd;
+    wire        IDmemRead;
+    wire  [31:0] IDinstCSR;
+    wire        pc_misaligned       = (pc[1:0] != 2'b00);
+    reg  [5:0]  trapID;
+    wire        invalid_inst;
     always @(*) begin
         trapID = 6'h00;
         if (pc_misaligned) begin
@@ -162,47 +163,6 @@ module cpu_top (
       assign flushOuto = flushOut;
     `endif 
 
-    
-    // IF-ID
-    always @(posedge clk) begin
-        `ifdef DEBUG
-            $display(" ");
-            $display("PC: %h", pc);
-        `endif
-        if(rst) begin
-            IDinstruct <= `INST_NOP;
-            IDPC       <= 32'h00000000;
-            IDrs1      <= 5'b0;              
-            IDrs2      <= 5'b0;
-            IDrd       <= 5'b0; 
-            IDinstCSR  <= `INST_NOP;   
-        end
-        else if (!(stall)) begin
-            if(instruction[6:0] == 7'b1110011) begin
-                IDinstruct <= instruction;
-                IDPC       <= pc;
-                IDrs1      <= rs1;              
-                IDrs2      <= 5'b0;
-                IDrd       <= rd;              
-                IDinstCSR  <= instruction;
-            end
-            else begin
-                IDinstruct <= instruction;
-                IDPC       <= pc;
-                IDrs1      <= rs1;
-                IDrs2      <= rs2;
-                IDrd       <= rd;
-                IDinstCSR  <= 32'b0;
-            end
-        end 
-        else begin
-            IDinstruct <= `INST_NOP;
-            IDrs1      <= 5'b0;              
-            IDrs2      <= 5'b0;
-            IDrd       <= 5'b0;              
-        end
-    end
-
     // ID-EX
     always @(posedge clk) begin
         if(rst) begin
@@ -249,7 +209,7 @@ module cpu_top (
             MEMjump_taken  <= 1'b0;
             pht_indexMEM   <= 3'h0;
             PC_savedMEM    <= 32'h00000000;
-            MEM_csr_reg_en <= 1'b0;;
+            MEM_csr_reg_en <= 1'b0;
         end
         else begin
             MEMinstruct    <= EXinstruct;
@@ -292,22 +252,11 @@ module cpu_top (
     
     //Flush
     always @(posedge clk) begin
-        if (flushOut == 2'b11) begin
-            IDinstruct  <= `INST_NOP;
-            IDrs1       <= 5'b0;            
-            IDrs2       <= 5'b0;
-            IDrd        <= 5'b0;            
+        if (flushOut == 2'b11) begin          
             EXinstruct  <= `INST_NOP;
             EXrd        <= 5'b0;           
             MEMinstruct <= `INST_NOP;
             MEMrd       <= 5'b0;             
-        end
-        else if (flushOut == 2'b01)
-        begin
-            IDinstruct <= `INST_NOP;
-            IDrs1      <= 5'b0;               
-            IDrs2      <= 5'b0;
-            IDrd       <= 5'b0;              
         end
     end
 
@@ -338,6 +287,26 @@ module cpu_top (
     .rs2(rs2)
     );
  
+  // Decoder /IF-ID PIPE
+  decoder DECODER(
+    .clk(clk),
+    .rst(rst),
+    .flushOut(flushOut),
+    .stall(stall),
+    .instruction(instruction),
+    .pc(pc),
+    .rs1(rs1),
+    .rs2(rs2),
+    .rd(rd),
+    .IDinstruct_o(IDinstruct),
+    .IDPC_o(IDPC),
+    .IDrs1_o(IDrs1),
+    .IDrs2_o(IDrs2),
+    .IDrd_o(IDrd),
+    .IDinstCSR_o(IDinstCSR),
+    .invalid_inst(invalid_inst)
+  );
+
   // Immediate Generator
   imm_gen IMM (
     .imm_in(IDinstruct),

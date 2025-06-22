@@ -40,3 +40,10 @@
 // 4     -  SBE   Supervisor Big Endianness
 // 5     -  MBE   Machine    Big Endianness
 // 31:6  -  WPRI
+
+sstatus
+bit:  31                19 18    16 15    14 13   8    6   5   1
+val:   1                 1  1     1  1     1  1   1    1   1   1
+        \______________/  |     |  |     |  |   |    |   |   |
+          SD (bit 31)     MXR   SUM XS[1:0] FS[1:0] SPP  UBE SPIE SIE
+32'b1000_0000_0000_1101_1110_0001_0110_0001
