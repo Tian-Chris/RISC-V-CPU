@@ -38,7 +38,8 @@ module csr_handler(
     
     //trap
     input  wire [31:0] csr_trapPC,
-    input  wire [5:0]  csr_trapID,
+    input  wire [4:0]  csr_trapID,
+    input  wire [31:0] faulting_inst,
     output wire        csr_branch_signal,
     output wire [31:0] csr_branch_address,
     
@@ -49,6 +50,11 @@ module csr_handler(
     input wire [31:0] WBPC,   // not +4, need to +4 here
     input wire [1:0] WBSel,
     input wire [1:0] forwardA
+
+    //MMU
+    output wire [1:0]  priv;
+    output wire [31:0] csr_satp;
+    output wire [31:0] sstatus_sum;
     );
     
 `include "csr_defs.v"
@@ -83,11 +89,12 @@ assign zimm        = csr_inst[19:15];
 assign csr_ecall   = csr_inst == `ECALL_INST;
 assign csr_mret    = csr_inst == `MRET_INST;
 
-reg [11:0] csr_addr_EX;
-reg [31:0] csr_rdata_EX;
-reg [11:0] csr_addr_MEM;
-reg [31:0] csr_rdata_MEM;
-
+reg  [11:0] csr_addr_EX;
+reg  [31:0] csr_rdata_EX;
+reg  [11:0] csr_addr_MEM;
+reg  [31:0] csr_rdata_MEM;
+wire [31:0] csr_satp;
+wire [1:0]  priv;
 csr_file csr (
     .clk(clk),
     .rst(rst),
@@ -106,6 +113,7 @@ csr_file csr (
     //exception
     .csr_trapPC(csr_trapPC),
     .csr_trapID(csr_trapID),
+    .faulting_inst(faulting_inst),
     .csr_ecall(csr_ecall),
     .csr_mret(csr_mret),
     .csr_branch_signal(csr_branch_signal),
@@ -113,7 +121,12 @@ csr_file csr (
     .csr_addr_EX(csr_addr_EX),
     .csr_rdata_EX(csr_rdata_EX),
     .csr_addr_MEM(csr_addr_MEM),
-    .csr_rdata_MEM(csr_rdata_MEM)
+    .csr_rdata_MEM(csr_rdata_MEM),
+
+    //mmu
+    .satp_o(csr_satp),
+    .priv_o(priv),
+    .sstatus_sum(sstatus_sum)
 );
 
 //read

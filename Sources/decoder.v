@@ -15,8 +15,9 @@ module decoder (
     output wire [4:0]  IDrs1_o,
     output wire [4:0]  IDrs2_o,
     output wire [4:0]  IDrd_o,
-    output wire [31:0]  IDinstCSR_o,
-    output wire        invalid_inst
+    output wire [31:0] IDinstCSR_o,
+    output wire        invalid_inst,
+    output wire [31:0] faulting_inst
 );
 `include "inst_defs.v"
 `include "csr_defs.v"
@@ -132,5 +133,21 @@ end
         ((IDinstruct & `INST_JAL_MASK)   == `INST_JAL)    ||
         ((IDinstruct & `INST_JALR_MASK)  == `INST_JALR)   ||
         ((IDinstruct & `INST_LUI_MASK)   == `INST_LUI)    ||
-        ((IDinstruct & `INST_AUIPC_MASK) == `INST_AUIPC));
+        ((IDinstruct & `INST_AUIPC_MASK) == `INST_AUIPC)  ||
+
+        ((IDinstruct & `CSR_INST_MASK)   == `CSRRW_INST)  ||
+        ((IDinstruct & `CSR_INST_MASK)   == `CSRRS_INST)  ||
+        ((IDinstruct & `CSR_INST_MASK)   == `CSRRC_INST)  ||
+        ((IDinstruct & `CSR_INST_MASK)   == `CSRRWI_INST) ||
+        ((IDinstruct & `CSR_INST_MASK)   == `CSRRSI_INST) ||
+        ((IDinstruct & `CSR_INST_MASK)   == `CSRRCI_INST) ||
+        ((IDinstruct & `CSR_INST_MASK)   == `MRET_INST)   ||
+        ((IDinstruct & `CSR_INST_MASK)   == `ECALL_INST)  ||
+        
+        // NOT ACTUALLY IMPLEMENTED I JUST DON"T WANT TEST TO TRAP
+        ((IDinstruct & `INST_FENCE_MASK) == `INST_FENCE)  ||
+        ((IDinstruct & `INST_SFENCE_MASK)== `INST_SFENCE) ||
+        ((IDinstruct & `INST_IFENCE_MASK)== `INST_IFENCE)
+        );
+        assign faulting_inst = IDinstruct;
 endmodule

@@ -59,24 +59,29 @@ module cpu_top (
     wire [4:0]  IFrs1 = rs1;
     wire [4:0]  IFrs2 = rs2;
     
+    //mmu
+    wire  [1:0]  priv;
+    wire  [31:0] csr_satp;
+    wire  [31:0] sstatus_sum;
+
     //ID Stage Reg
     wire  [31:0] IDinstruct;
     wire  [31:0] IDPC;
     wire  [4:0]  IDrs1;
     wire  [4:0]  IDrs2;
     wire  [4:0]  IDrd;
-    wire        IDmemRead;
+    wire         IDmemRead;
     wire  [31:0] IDinstCSR;
-    wire        pc_misaligned       = (pc[1:0] != 2'b00);
-    reg  [5:0]  trapID;
-    wire        invalid_inst;
-    always @(*) begin
-        trapID = 6'h00;
-        if (pc_misaligned) begin
-            trapID         = `EXCEPT_MISALIGNED_PC;
-        end
-    end
-    
+
+    //exception
+    wire  [4:0]  trapID;
+    wire         pc_misaligned       = (pc[1:0] != 2'b00);
+    wire         invalid_inst;  // the signal
+    wire  [31:0] faulting_inst; // the inst
+
+    assign trapID = pc_misaligned ? `EXCEPT_MISALIGNED_PC :
+                    invalid_inst  ? `EXCEPT_ILLEGAL_INST  : `EXCEPT_DO_NOTHING;
+
     //early jump/branch
     wire        jump_early;
     wire        branch_early;
@@ -304,10 +309,30 @@ module cpu_top (
     .IDrs2_o(IDrs2),
     .IDrd_o(IDrd),
     .IDinstCSR_o(IDinstCSR),
-    .invalid_inst(invalid_inst)
+    .invalid_inst(invalid_inst),
+    .faulting_inst(faulting_inst)
   );
 
-  // Immediate Generator
+
+  MMU_unit MMU(
+    .VPC(pc), 
+    .priv(priv),
+    .csr_satp(csr_satp),
+    .sstatus_sum(sstatus_sum), 
+
+    //UNCOMPLETE!!!!!
+    //exception    
+    input  wire        access_is_load,
+    input  wire        access_is_store,
+    input  wire        access_is_instr,
+    output wire        instr_fault_mmu,
+    output wire        load_fault_mmu,
+    output wire        store_fault_mmu,
+    output wire [31:0] faulting_va,
+
+    output reg  [31:0] PC   
+  );
+
   imm_gen IMM (
     .imm_in(IDinstruct),
     .imm_sel(imm_gen_sel),
@@ -332,7 +357,6 @@ module cpu_top (
     .PC_saved(PC_saved)
   );
   
-  // Datapath Controller
   datapath DP (
     .clk(clk),
     .rst(rst),
@@ -376,7 +400,6 @@ module cpu_top (
     `endif
   );    
 
-  // Register File
   register RF (
     .clk(clk),
     .rst(rst),
@@ -410,13 +433,15 @@ module cpu_top (
     `endif
   );
 
- 
-  //csr handler
   csr_handler CSR (
   .clk(clk),
   .rst(rst),
+  
+  //trap
   .csr_trapID(trapID),
   .csr_trapPC(pc),
+  .faulting_inst(faulting_inst),
+
   .flush(flushOut),
   .csr_inst(EXinstCSR),
   .csr_rs1(EXrdata1),
@@ -434,10 +459,14 @@ module cpu_top (
   .WBAlu(WBAlu),
   .WBPC(WBPC),
   .WBSel(Reg_WBSel),
-  .forwardA(forwardA)
+  .forwardA(forwardA),
+
+  //mmu
+  .priv(priv),
+  .csr_satp(csr_satp),
+  .sstatus_sum(sstatus_sum)
   );
   
-  //hazard
   hazard_unit HAZARD (
     .IFrs1(IFrs1),
     .IFrs2(IFrs2),
@@ -446,7 +475,6 @@ module cpu_top (
     .stall(stall)
   );
   
-  // ALU
   ALU ALU (
     .rdata1(EXrdata1),
     .rdata2(EXrdata2),
@@ -465,7 +493,6 @@ module cpu_top (
     .forwardB(forwardB)
   );
 
-  // Branch Comparator
   branch_comp COMP (
     .sign_select(branch_signed),
     .rdata1(EXrdata1),
@@ -481,7 +508,6 @@ module cpu_top (
     .WBSel(Reg_WBSel)
   );
   
-  // Data Memoryz
   dmem DMEM (
     .clk(clk),
     .rst(rst),

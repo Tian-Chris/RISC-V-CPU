@@ -17,19 +17,26 @@ module csr_file (
     
     //exception
     input  wire [31:0] csr_trapPC,
-    input  wire [5:0]  csr_trapID,
+    input  wire [4:0]  csr_trapID,
+    input  wire [31:0] faulting_inst,
     input  wire        csr_ecall,
     input  wire        csr_mret,
+    input  wire        csr_sret,
     
     //trap branch
     output reg         csr_branch_signal,
     output reg [31:0]  csr_branch_address,
     
     //trap branch forwarding
-    input wire [11:0] csr_addr_EX,
-    input wire [31:0] csr_rdata_EX,
-    input wire [11:0] csr_addr_MEM,
-    input wire [31:0] csr_rdata_MEM
+    input  wire [11:0] csr_addr_EX,
+    input  wire [31:0] csr_rdata_EX,
+    input  wire [11:0] csr_addr_MEM,
+    input  wire [31:0] csr_rdata_MEM,
+
+    //MMU
+    output wire [1:0]  priv_o,
+    output wire [31:0] satp_o,
+    output wire [31:0] sstatus_sum
 );
 `include "csr_defs.v"
 
@@ -214,7 +221,7 @@ always @(posedge clk) begin
     end
 end
 
-reg [5:0] csr_trapID_temp;
+reg [4:0] csr_trapID_temp;
 //trap handling
 always @(*) begin
     priv_f     = priv_c;
@@ -253,20 +260,72 @@ always @(*) begin
             `PRIV_MACHINE: csr_trapID_temp  = `EXCEPT_ECALL_M;
         endcase
     end
-    if(csr_trapID_temp != 0) begin
-        $display("TRAP => PC: %h | mtvec: %h | mpec: %h", csr_trapPC, mtvec_c, mepc_c);
-        mstatus_f[`MSTATUS_MPIE] = mstatus_f[`MSTATUS_MIE];
-        mstatus_f[`MSTATUS_MPP]  = priv_c;
-        mstatus_f[`MSTATUS_MIE]  = 1'b0;
-        mcause_f                 = {27'b0, csr_trapID_temp[4:0]};
-        mepc_f                   = csr_trapPC;
-        //this doesn't do anything
-        priv_f                   = `PRIV_MACHINE;
- 
-        case(csr_trapID_temp)
-            `EXCEPT_MISALIGNED_PC: mtval_f = csr_trapPC;
-        endcase
+    if(csr_trapID_temp != `EXCEPT_DO_NOTHING) begin
+        //Supervisor Mode
+        if(medeleg_c[csr_trapID_temp] && priv_c != `PRIV_MACHINE) begin
+            `ifdef DEBUG 
+                $display("TRAP => PC: %h | stvec: %h | spec: %h", csr_trapPC, stvec_c, sepc_c);
+            `endif
+            mstatus_f[`MSTATUS_SPIE] = mstatus_f[`MSTATUS_SIE];
+            mstatus_f[`MSTATUS_SPP]  = priv_c;
+            mstatus_f[`MSTATUS_SIE]  = 1'b0;
+            scause_f                 = {27'b0, csr_trapID_temp[4:0]};
+            sepc_f                   = csr_trapPC;
+            //this doesn't do anything
+            priv_f                   = `PRIV_MACHINE;
+
+            case (csr_trapID_temp)  
+                `EXCEPT_MISALIGNED_PC:    stval_f = csr_trapPC;              // faulting PC (instruction address misaligned)
+                `EXCEPT_ACCESS_FAULT:     stval_f = csr_trapPC;              // faulting PC (instruction access fault)
+                `EXCEPT_ILLEGAL_INST:     stval_f = faulting_inst;            // illegal instruction bits
+                `EXCEPT_BREAKPOINT:       stval_f = csr_trapPC;              // faulting PC
+                `EXCEPT_LOAD_MISALIGNED:  stval_f = 32'hxxxxxxxx;//faulting_load_addr;       // faulting load address (misaligned)
+                `EXCEPT_LOAD_FAULT:       stval_f = 32'hxxxxxxxx;//faulting_load_addr;       // faulting load address (access fault)
+                `EXCEPT_STORE_MISALIGNED: stval_f = 32'hxxxxxxxx;//faulting_store_addr;      // faulting store address (misaligned)
+                `EXCEPT_STORE_FAULT:      stval_f = 32'hxxxxxxxx;//faulting_store_addr;      // faulting store address (access fault)
+                `EXCEPT_ECALL_U:          stval_f = 32'h00000000;               // ECALL usually zero
+                `EXCEPT_ECALL_S:          stval_f = 32'h00000000;               // ECALL usually zero
+                `EXCEPT_ECALL_M:          stval_f = 32'h00000000;               // ECALL usually zero
+                `EXCEPT_INST_PAGE_FAULT:  stval_f = csr_trapPC;              // faulting PC
+                `EXCEPT_LOAD_PAGE_FAULT:  stval_f = 32'hxxxxxxxx;//faulting_load_addr;       // faulting load address
+                `EXCEPT_STORE_PAGE_FAULT: stval_f = 32'hxxxxxxxx;//faulting_store_addr;      // faulting store address
+                default:                  stval_f = 32'h00000000;              // default zero
+            endcase
+        end
+        //Machine Mode
+        else begin
+            `ifdef DEBUG 
+                $display("TRAP => PC: %h | mtvec: %h | mpec: %h", csr_trapPC, mtvec_c, mepc_c);
+            `endif
+            mstatus_f[`MSTATUS_MPIE] = mstatus_f[`MSTATUS_MIE];
+            mstatus_f[`MSTATUS_MPP]  = priv_c;
+            mstatus_f[`MSTATUS_MIE]  = 1'b0;
+            mcause_f                 = {27'b0, csr_trapID_temp[4:0]};
+            mepc_f                   = csr_trapPC;
+            //this doesn't do anything
+            priv_f                   = `PRIV_MACHINE;
+
+            case (csr_trapID_temp)  
+                `EXCEPT_MISALIGNED_PC:    mtval_f = csr_trapPC;              // faulting PC (instruction address misaligned)
+                `EXCEPT_ACCESS_FAULT:     mtval_f = csr_trapPC;              // faulting PC (instruction access fault)
+                `EXCEPT_ILLEGAL_INST:     mtval_f = faulting_inst; //faulting_inst;            // illegal instruction bits
+                `EXCEPT_BREAKPOINT:       mtval_f = csr_trapPC;              // faulting PC
+                `EXCEPT_LOAD_MISALIGNED:  mtval_f = 32'hxxxxxxxx;//faulting_load_addr;       // faulting load address (misaligned)
+                `EXCEPT_LOAD_FAULT:       mtval_f = 32'hxxxxxxxx;//faulting_load_addr;       // faulting load address (access fault)
+                `EXCEPT_STORE_MISALIGNED: mtval_f = 32'hxxxxxxxx;//faulting_store_addr;      // faulting store address (misaligned)
+                `EXCEPT_STORE_FAULT:      mtval_f = 32'hxxxxxxxx;//faulting_store_addr;      // faulting store address (access fault)
+                `EXCEPT_ECALL_U:          mtval_f = 32'h00000000;               // ECALL usually zero
+                `EXCEPT_ECALL_S:          mtval_f = 32'h00000000;               // ECALL usually zero
+                `EXCEPT_ECALL_M:          mtval_f = 32'h00000000;               // ECALL usually zero
+                `EXCEPT_INST_PAGE_FAULT:  mtval_f = csr_trapPC;              // faulting PC
+                `EXCEPT_LOAD_PAGE_FAULT:  mtval_f = 32'hxxxxxxxx;//faulting_load_addr;       // faulting load address
+                `EXCEPT_STORE_PAGE_FAULT: mtval_f = 32'hxxxxxxxx;//faulting_store_addr;      // faulting store address
+                default:                  mtval_f = 32'h00000000;              // default zero
+            endcase
+        end
     end
+
+    //return
     else if(csr_mret) begin
         $display("MRET => PC: %h | mtvec: %h | mpec: %h | csr_rdata_EX: %h | csr_rdata_MEM: %h | csr_addr_EX: %h | csr_addr_MEM: %h", csr_trapPC, mtvec_c, mepc_c, csr_rdata_EX, csr_rdata_MEM, csr_addr_EX, csr_addr_MEM);
         priv_f                   = mstatus_f[`MSTATUS_MPP];
@@ -294,16 +353,44 @@ always @(posedge clk) begin
                 csr_branch_address <= csr_rdata_MEM;
             else
                 csr_branch_address <= mepc_c;
-        //exception
-        end else if (csr_trapID_temp) begin
+        end
+        
+        else if(csr_sret) begin
             csr_branch_signal  <= 1'b1;
-            if (csr_addr_EX == `mtvec_ADDR)
+            //CONSIDER CHANGING THIS IS ERROR PRONE!!!
+            if (csr_addr_EX == `sepc_ADDR)
                 csr_branch_address <= csr_rdata_EX;
-            else if (csr_addr_MEM == `mtvec_ADDR)
+            else if (csr_addr_MEM == `sepc_ADDR)
                 csr_branch_address <= csr_rdata_MEM;
             else
-                csr_branch_address <= mtvec_c;
+                csr_branch_address <= sepc_c;
+        end
+
+        //exception
+        else if (csr_trapID_temp != `EXCEPT_DO_NOTHING && medeleg_c[csr_trapID_temp] && priv_c != `PRIV_MACHINE) begin
+            csr_branch_signal  <= 1'b1;
+            if (csr_addr_EX == `stvec_ADDR)
+                csr_branch_address <= csr_rdata_EX;
+            else if (csr_addr_MEM == `stvec_ADDR)
+                csr_branch_address <= csr_rdata_MEM;
+            else
+                csr_branch_address <= stvec_c;
+        end
+
+        else if(csr_trapID_temp != `EXCEPT_DO_NOTHING) begin
+            csr_branch_signal  <= 1'b1;
+        if (csr_addr_EX == `mtvec_ADDR)
+            csr_branch_address <= csr_rdata_EX;
+        else if (csr_addr_MEM == `mtvec_ADDR)
+            csr_branch_address <= csr_rdata_MEM;
+        else
+            csr_branch_address <= mtvec_c;
         end
     end
 end
+
+assign priv_o = priv_c;
+assign satp_o = satp_c;
+assign sstatus_sum = mstatus_c[`MSTATUS_SUM];
+
 endmodule

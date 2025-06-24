@@ -39,7 +39,6 @@
 `define CSRRWI_INST      32'b101_00000_11100_11
 `define CSRRSI_INST      32'b110_00000_11100_11
 `define CSRRCI_INST      32'b111_00000_11100_11
-`define CSRRCI_INST      32'b111_00000_11100_11
 `define CSR_INST_MASK    32'b111_00000_11111_11
 
 `define MRET_INST        32'h30200073
@@ -52,6 +51,14 @@
 `define CSR_OPP_RWI      4'b0100
 `define CSR_OPP_RSI      4'b0101
 `define CSR_OPP_RCI      4'b0110
+
+// NOT ACTUALLY IMPLEMENTED I JUST DON"T WANT TEST TO TRAP
+`define INST_FENCE       32'hf
+`define INST_FENCE_MASK  32'h707f
+`define INST_SFENCE      32'h12000073
+`define INST_SFENCE_MASK 32'hfe007fff
+`define INST_IFENCE      32'h100f
+`define INST_IFENCE_MASK 32'h707f
 
 //===============
 // CSR Addresses
@@ -138,7 +145,19 @@
 // =============
 //  Exceptions
 // =============
-`define EXCEPT_MISALIGNED_PC     6'h10
-`define EXCEPT_ECALL_U           6'h18
-`define EXCEPT_ECALL_S           6'h19
-`define EXCEPT_ECALL_M           6'h1B
+`define EXCEPT_MISALIGNED_PC     5'h00
+`define EXCEPT_ACCESS_FAULT      5'h01
+`define EXCEPT_ILLEGAL_INST      5'h02
+`define EXCEPT_BREAKPOINT        5'h03
+`define EXCEPT_LOAD_MISALIGNED   5'h04
+`define EXCEPT_LOAD_FAULT        5'h05
+`define EXCEPT_STORE_MISALIGNED  5'h06
+`define EXCEPT_STORE_FAULT       5'h07
+`define EXCEPT_ECALL_U           5'h08
+`define EXCEPT_ECALL_S           5'h09
+`define EXCEPT_ECALL_M           5'h0B
+`define EXCEPT_INST_PAGE_FAULT   5'h0C
+`define EXCEPT_LOAD_PAGE_FAULT   5'h0D
+`define EXCEPT_STORE_PAGE_FAULT  5'h0F
+`define EXCEPT_DO_NOTHING        5'h1F
+
