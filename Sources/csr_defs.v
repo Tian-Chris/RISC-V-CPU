@@ -1,22 +1,3 @@
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 06/13/2025 10:32:39 AM
-// Design Name: 
-// Module Name: definitions
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
 
 //==============
 // Instructions
@@ -42,6 +23,7 @@
 `define CSR_INST_MASK    32'b111_00000_11111_11
 
 `define MRET_INST        32'h30200073
+`define SRET_INST        32'h10200073
 `define ECALL_INST       32'h00000073
 
 `define CSR_OPP_DN       4'b0000 //do nothing
@@ -160,4 +142,11 @@
 `define EXCEPT_LOAD_PAGE_FAULT   5'h0D
 `define EXCEPT_STORE_PAGE_FAULT  5'h0F
 `define EXCEPT_DO_NOTHING        5'h1F
+
+
+// ===============
+//   Peripherals
+// ===============
+`define UART_WRITE_ADDR          32'h10000000
+`define UART_READ_ADDR           32'h10000005
 

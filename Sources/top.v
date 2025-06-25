@@ -63,6 +63,24 @@ module cpu_top (
     wire  [1:0]  priv;
     wire  [31:0] csr_satp;
     wire  [31:0] sstatus_sum;
+    wire        instr_fault_mmu_IMEM;
+    wire        load_fault_mmu_IMEM;
+    wire        store_fault_mmu_IMEM;
+    wire [31:0] faulting_va_IMEM;
+    wire        access_is_load_IMEM = 0;
+    wire        access_is_store_IMEM = 0;
+    wire        access_is_inst_IMEM = 1;
+    wire [31:0] PPC;
+    //mmudmem
+    wire        instr_fault_mmu_DMEM;
+    wire        load_fault_mmu_DMEM;
+    wire        store_fault_mmu_DMEM;
+    wire [31:0] faulting_va_DMEM;
+    wire        access_is_inst_DMEM = 0;
+    wire [31:0] PPC_DMEM;
+    wire        instr_fault_mmu = instr_fault_mmu_DMEM | instr_fault_mmu_IMEM;
+    wire        load_fault_mmu  = load_fault_mmu_DMEM  | load_fault_mmu_IMEM;
+    wire        store_fault_mmu = store_fault_mmu_DMEM | store_fault_mmu_IMEM;
 
     //ID Stage Reg
     wire  [31:0] IDinstruct;
@@ -72,6 +90,8 @@ module cpu_top (
     wire  [4:0]  IDrd;
     wire         IDmemRead;
     wire  [31:0] IDinstCSR;
+    wire         access_is_load_ID;
+    wire         access_is_store_ID;
 
     //exception
     wire  [4:0]  trapID;
@@ -79,8 +99,11 @@ module cpu_top (
     wire         invalid_inst;  // the signal
     wire  [31:0] faulting_inst; // the inst
 
-    assign trapID = pc_misaligned ? `EXCEPT_MISALIGNED_PC :
-                    invalid_inst  ? `EXCEPT_ILLEGAL_INST  : `EXCEPT_DO_NOTHING;
+    assign trapID = pc_misaligned   ? `EXCEPT_MISALIGNED_PC    :
+                    invalid_inst    ? `EXCEPT_ILLEGAL_INST     : 
+                    instr_fault_mmu ? `EXCEPT_INST_PAGE_FAULT  : 
+                    instr_fault_mmu ? `EXCEPT_LOAD_PAGE_FAULT  :
+                    instr_fault_mmu ? `EXCEPT_STORE_PAGE_FAULT :`EXCEPT_DO_NOTHING;
 
     //early jump/branch
     wire        jump_early;
@@ -112,6 +135,8 @@ module cpu_top (
     wire        EX_csr_reg_en;
     wire        EX_csr_branch_signal;
     wire [31:0] EX_csr_branch_address;
+    reg         access_is_load_EX;
+    reg         access_is_store_EX;
     
     //MEM Stage Reg
     reg  [31:0] MEMinstruct;
@@ -126,6 +151,8 @@ module cpu_top (
     reg         MEM_csr_reg_en;
     wire [31:0] MEM_csr_data_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
     wire [31:0] MEM_csr_addr_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
+    reg         access_is_load_MEM;
+    reg         access_is_store_MEM;
     
     //WB Stage Reg
     reg  [31:0] WBinstruct;
@@ -181,6 +208,8 @@ module cpu_top (
             pht_indexEX  <= 0;
             PC_savedEX   <= 32'h00000000;
             EXinstCSR    <= `INST_NOP;
+            access_is_load_EX <= 0;
+            access_is_store_EX <= 0;
         end
         else begin
             EXinstruct   <= IDinstruct;
@@ -193,6 +222,8 @@ module cpu_top (
             pht_indexEX  <= pht_index;
             PC_savedEX   <= PC_saved;
             EXinstCSR    <= IDinstCSR;
+            access_is_load_EX <= access_is_load_ID;
+            access_is_store_EX <= access_is_store_ID;
         end
     end
         
@@ -215,6 +246,8 @@ module cpu_top (
             pht_indexMEM   <= 3'h0;
             PC_savedMEM    <= 32'h00000000;
             MEM_csr_reg_en <= 1'b0;
+            access_is_load_MEM <= 1'b0;
+            access_is_store_MEM <= 1'b0;
         end
         else begin
             MEMinstruct    <= EXinstruct;
@@ -226,6 +259,8 @@ module cpu_top (
             pht_indexMEM   <= pht_indexEX;
             PC_savedMEM    <= PC_savedEX;
             MEM_csr_reg_en <= EX_csr_reg_en;
+            access_is_load_MEM <= access_is_load_EX;
+            access_is_store_MEM <= access_is_store_EX;
         end
     end
         
@@ -285,7 +320,7 @@ module cpu_top (
   imem IMEM (
     .clk(clk),
     .rst(rst),
-    .PC(pc),
+    .PC(PPC),
     .inst(instruction),
     .rd(rd),
     .rs1(rs1),
@@ -310,27 +345,9 @@ module cpu_top (
     .IDrd_o(IDrd),
     .IDinstCSR_o(IDinstCSR),
     .invalid_inst(invalid_inst),
-    .faulting_inst(faulting_inst)
-  );
-
-
-  MMU_unit MMU(
-    .VPC(pc), 
-    .priv(priv),
-    .csr_satp(csr_satp),
-    .sstatus_sum(sstatus_sum), 
-
-    //UNCOMPLETE!!!!!
-    //exception    
-    input  wire        access_is_load,
-    input  wire        access_is_store,
-    input  wire        access_is_instr,
-    output wire        instr_fault_mmu,
-    output wire        load_fault_mmu,
-    output wire        store_fault_mmu,
-    output wire [31:0] faulting_va,
-
-    output reg  [31:0] PC   
+    .faulting_inst(faulting_inst),
+    .access_is_load_ID(access_is_load_ID),
+    .access_is_store_ID(access_is_store_ID)
   );
 
   imm_gen IMM (
@@ -441,7 +458,8 @@ module cpu_top (
   .csr_trapID(trapID),
   .csr_trapPC(pc),
   .faulting_inst(faulting_inst),
-
+  .faulting_va_IMEM(faulting_va_IMEM),
+  .faulting_va_DMEM(faulting_va_DMEM),
   .flush(flushOut),
   .csr_inst(EXinstCSR),
   .csr_rs1(EXrdata1),
@@ -513,8 +531,35 @@ module cpu_top (
     .rst(rst),
     .RW(dmemRW),
     .funct3(funct3),
-    .address(MEMAlu),
+    .address(PPC_DMEM),
     .wdata(MEMrdata2),
-    .rdata(dmem_out)
+    .rdata(dmem_out),
+
+    //MMU
+    .priv(priv),
+    .csr_satp(csr_satp),
+    .sstatus_sum(sstatus_sum), 
+
+    //IMEM
+    .VPC_IMEM(pc), 
+    .access_is_load_IMEM(access_is_load_IMEM),
+    .access_is_store_IMEM(access_is_store_IMEM),
+    .access_is_inst_IMEM(access_is_inst_IMEM),
+    .instr_fault_mmu_IMEM(instr_fault_mmu_IMEM),
+    .load_fault_mmu_IMEM(load_fault_mmu_IMEM),
+    .store_fault_mmu_IMEM(store_fault_mmu_IMEM),
+    .faulting_va_IMEM(faulting_va_IMEM),
+    .PC_IMEM(PPC),
+
+    //DMEM
+    .VPC_DMEM(MEMAlu), 
+    .access_is_load_DMEM(access_is_load_MEM),
+    .access_is_store_DMEM(access_is_store_MEM),
+    .access_is_inst_DMEM(access_is_inst_DMEM),
+    .instr_fault_mmu_DMEM(instr_fault_mmu_DMEM),
+    .load_fault_mmu_DMEM(load_fault_mmu_DMEM),
+    .store_fault_mmu_DMEM(store_fault_mmu_DMEM),
+    .faulting_va_DMEM(faulting_va_DMEM),
+    .PC_DMEM(PPC_DMEM)   
   );
 endmodule

@@ -32,6 +32,8 @@ module csr_file (
     input  wire [31:0] csr_rdata_EX,
     input  wire [11:0] csr_addr_MEM,
     input  wire [31:0] csr_rdata_MEM,
+    input  wire [31:0] faulting_va_IMEM,
+    input  wire [31:0] faulting_va_DMEM,
 
     //MMU
     output wire [1:0]  priv_o,
@@ -287,8 +289,8 @@ always @(*) begin
                 `EXCEPT_ECALL_S:          stval_f = 32'h00000000;               // ECALL usually zero
                 `EXCEPT_ECALL_M:          stval_f = 32'h00000000;               // ECALL usually zero
                 `EXCEPT_INST_PAGE_FAULT:  stval_f = csr_trapPC;              // faulting PC
-                `EXCEPT_LOAD_PAGE_FAULT:  stval_f = 32'hxxxxxxxx;//faulting_load_addr;       // faulting load address
-                `EXCEPT_STORE_PAGE_FAULT: stval_f = 32'hxxxxxxxx;//faulting_store_addr;      // faulting store address
+                `EXCEPT_LOAD_PAGE_FAULT:  stval_f = faulting_va_DMEM;  //faulting_load_addr;       // faulting load address
+                `EXCEPT_STORE_PAGE_FAULT: stval_f = faulting_va_DMEM;  //faulting_store_addr;      // faulting store address
                 default:                  stval_f = 32'h00000000;              // default zero
             endcase
         end
@@ -318,8 +320,8 @@ always @(*) begin
                 `EXCEPT_ECALL_S:          mtval_f = 32'h00000000;               // ECALL usually zero
                 `EXCEPT_ECALL_M:          mtval_f = 32'h00000000;               // ECALL usually zero
                 `EXCEPT_INST_PAGE_FAULT:  mtval_f = csr_trapPC;              // faulting PC
-                `EXCEPT_LOAD_PAGE_FAULT:  mtval_f = 32'hxxxxxxxx;//faulting_load_addr;       // faulting load address
-                `EXCEPT_STORE_PAGE_FAULT: mtval_f = 32'hxxxxxxxx;//faulting_store_addr;      // faulting store address
+                `EXCEPT_LOAD_PAGE_FAULT:  mtval_f = faulting_va_DMEM; //faulting_load_addr;       // faulting load address
+                `EXCEPT_STORE_PAGE_FAULT: mtval_f = faulting_va_DMEM; //faulting_store_addr;      // faulting store address
                 default:                  mtval_f = 32'h00000000;              // default zero
             endcase
         end
@@ -332,7 +334,14 @@ always @(*) begin
         mstatus_f[`MSTATUS_MIE]  = mstatus_f[`MSTATUS_MPIE];
         mstatus_f[`MSTATUS_MPIE] = 1'b1;
         mstatus_f[`MSTATUS_MPP]  = 2'b00;
-     end
+    end
+    else if(csr_sret) begin
+        $display("SRET => PC: %h | stvec: %h | spec: %h | csr_rdata_EX: %h | csr_rdata_MEM: %h | csr_addr_EX: %h | csr_addr_MEM: %h", csr_trapPC, stvec_c, sepc_c, csr_rdata_EX, csr_rdata_MEM, csr_addr_EX, csr_addr_MEM);
+        priv_f                   = {1'b0, mstatus_f[`MSTATUS_SPP]}; //SPP is only 1 bit
+        mstatus_f[`MSTATUS_SIE]  = mstatus_f[`MSTATUS_SPIE];
+        mstatus_f[`MSTATUS_SPIE] = 1'b1;
+        mstatus_f[`MSTATUS_SPP]  = 1'b0;
+    end
 end
 
 always @(posedge clk) begin
@@ -343,7 +352,6 @@ always @(posedge clk) begin
         csr_branch_signal  <= 1'b0;
         csr_branch_address <= 32'b0;
 
-        //mret
         if (csr_mret) begin
             csr_branch_signal  <= 1'b1;
             //CONSIDER CHANGING THIS IS ERROR PRONE!!!

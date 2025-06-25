@@ -40,6 +40,8 @@ module csr_handler(
     input  wire [31:0] csr_trapPC,
     input  wire [4:0]  csr_trapID,
     input  wire [31:0] faulting_inst,
+    input  wire [31:0] faulting_va_IMEM,
+    input  wire [31:0] faulting_va_DMEM,
     output wire        csr_branch_signal,
     output wire [31:0] csr_branch_address,
     
@@ -49,12 +51,12 @@ module csr_handler(
     input wire [31:0] WBAlu,
     input wire [31:0] WBPC,   // not +4, need to +4 here
     input wire [1:0] WBSel,
-    input wire [1:0] forwardA
+    input wire [1:0] forwardA,
 
     //MMU
-    output wire [1:0]  priv;
-    output wire [31:0] csr_satp;
-    output wire [31:0] sstatus_sum;
+    output wire [1:0]  priv,
+    output wire [31:0] csr_satp,
+    output wire [31:0] sstatus_sum
     );
     
 `include "csr_defs.v"
@@ -67,6 +69,7 @@ wire [31:0] csr_status;
 wire [31:0] zimm;
 wire        csr_ecall;
 wire        csr_mret;
+wire        csr_sret;
 
 // Forwarding values for CSR rs1
 wire [31:0] csr_rs1_val;
@@ -88,13 +91,13 @@ assign csr_raddr   = csr_inst[31:20];
 assign zimm        = csr_inst[19:15];
 assign csr_ecall   = csr_inst == `ECALL_INST;
 assign csr_mret    = csr_inst == `MRET_INST;
+assign csr_sret    = csr_inst == `SRET_INST;
 
 reg  [11:0] csr_addr_EX;
 reg  [31:0] csr_rdata_EX;
 reg  [11:0] csr_addr_MEM;
 reg  [31:0] csr_rdata_MEM;
-wire [31:0] csr_satp;
-wire [1:0]  priv;
+
 csr_file csr (
     .clk(clk),
     .rst(rst),
@@ -114,8 +117,11 @@ csr_file csr (
     .csr_trapPC(csr_trapPC),
     .csr_trapID(csr_trapID),
     .faulting_inst(faulting_inst),
+    .faulting_va_IMEM(faulting_va_IMEM),
+    .faulting_va_DMEM(faulting_va_DMEM),
     .csr_ecall(csr_ecall),
     .csr_mret(csr_mret),
+    .csr_sret(csr_sret),
     .csr_branch_signal(csr_branch_signal),
     .csr_branch_address(csr_branch_address),
     .csr_addr_EX(csr_addr_EX),

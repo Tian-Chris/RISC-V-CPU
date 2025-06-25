@@ -17,6 +17,8 @@ module decoder (
     output wire [4:0]  IDrd_o,
     output wire [31:0] IDinstCSR_o,
     output wire        invalid_inst,
+    output wire        access_is_load_ID,
+    output wire        access_is_store_ID,
     output wire [31:0] faulting_inst
 );
 `include "inst_defs.v"
@@ -149,5 +151,15 @@ end
         ((IDinstruct & `INST_SFENCE_MASK)== `INST_SFENCE) ||
         ((IDinstruct & `INST_IFENCE_MASK)== `INST_IFENCE)
         );
-        assign faulting_inst = IDinstruct;
+    
+    //for DMEM mmu
+    assign access_is_load_ID =   (((IDinstruct & `INST_LB_MASK)    == `INST_LB)     ||
+                                  ((IDinstruct & `INST_LBU_MASK)   == `INST_LBU)    ||
+                                  ((IDinstruct & `INST_LH_MASK)    == `INST_LH)     ||
+                                  ((IDinstruct & `INST_LHU_MASK)   == `INST_LHU)    ||
+                                  ((IDinstruct & `INST_LW_MASK)    == `INST_LW));
+    assign access_is_store_ID =  (((IDinstruct & `INST_SB_MASK)    == `INST_SB)     ||
+                                  ((IDinstruct & `INST_SH_MASK)    == `INST_SH)     ||
+                                  ((IDinstruct & `INST_SW_MASK)    == `INST_SW));
+    assign faulting_inst = IDinstruct;
 endmodule
