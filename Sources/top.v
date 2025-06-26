@@ -105,6 +105,11 @@ module cpu_top (
                     instr_fault_mmu ? `EXCEPT_LOAD_PAGE_FAULT  :
                     instr_fault_mmu ? `EXCEPT_STORE_PAGE_FAULT :`EXCEPT_DO_NOTHING;
 
+    //interrupt
+    wire mtip;
+    wire msip;
+    wire meip;
+
     //early jump/branch
     wire        jump_early;
     wire        branch_early;
@@ -482,7 +487,12 @@ module cpu_top (
   //mmu
   .priv(priv),
   .csr_satp(csr_satp),
-  .sstatus_sum(sstatus_sum)
+  .sstatus_sum(sstatus_sum),
+
+  //UART CLINT
+  .mtip(mtip),
+  .msip(msip),
+  .meip(meip)
   );
   
   hazard_unit HAZARD (
@@ -539,6 +549,11 @@ module cpu_top (
     .priv(priv),
     .csr_satp(csr_satp),
     .sstatus_sum(sstatus_sum), 
+
+    //CLINT AND UART
+    .mtip(mtip),
+    .msip(msip),
+    .meip(meip),
 
     //IMEM
     .VPC_IMEM(pc), 

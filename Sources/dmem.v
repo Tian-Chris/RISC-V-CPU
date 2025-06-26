@@ -56,7 +56,14 @@ module dmem(
     output wire        load_fault_mmu_DMEM,
     output wire        store_fault_mmu_DMEM,
     output wire [31:0] faulting_va_DMEM,
-    output reg  [31:0] PC_DMEM          
+    output reg  [31:0] PC_DMEM,
+
+    //CLINT
+    output wire        msip,   
+    output wire        mtip,
+
+    //uart
+    output wire        meip
     );
     
     `include "csr_defs.v"
@@ -70,87 +77,148 @@ module dmem(
     //uart
     reg         uart_fifo_write_en;
     reg [7:0]   uart_fifo_data;
-    wire        fifo_full;
-    wire        uart_output_line; //goes nowhere for now
+    reg         cpu_read;
+    wire        rx_line;
+    wire        tx_line;
+    wire        rx_ready;
+    wire        tx_ready;
+    reg [31:0]  rx_data_output;
+
+
+    //Timer
+    reg [31:0] mtime;
+    reg [31:0] mtimeh;
+    reg [31:0] mtimecmp;
+    reg [31:0] mtimecmph;
+    reg        msip_reg;
+
+    always @(posedge clk) begin
+        if (rst)
+            mtime  <= 32'b0;
+        else if(mtime != 32'hFFFFFFFF)
+            mtime  <= mtime + 1;
+        else begin
+            mtime  <= 0;
+            mtimeh <= mtimeh + 1;
+        end
+    end
+
+    assign msip = msip_reg;
+    assign mtip = ({mtimeh, mtime} >= {mtimecmph, mtimecmp});
+    assign meip = rx_ready;
     
     always @(posedge clk) begin
         uart_fifo_write_en <= 0;
-        if (RW  && address == `UART_WRITE_ADDR) begin
-            uart_fifo_write_en <= 1;
-            uart_fifo_data <= wdata[7:0];
-        end
-        else if (RW  && (address != `UART_READ_ADDR)) begin
-            // write
-            case(funct3)
-                3'b000: begin // sb
-                    case(address[1:0])
-                        2'b00: dmem[address[31:2]][7:0]   <= wdata[7:0];
-                        2'b01: dmem[address[31:2]][15:8]  <= wdata[7:0];
-                        2'b10: dmem[address[31:2]][23:16] <= wdata[7:0];
-                        2'b11: dmem[address[31:2]][31:24] <= wdata[7:0];
-                    endcase
+        if(RW) begin
+            case(address)
+
+                `UART_WRITE_ADDR: begin
+                    uart_fifo_write_en <= 1;
+                    uart_fifo_data     <= wdata[7:0];
                 end
-                3'b001: begin // sh 
-                    case(address[1])
-                        1'b0: dmem[address[31:2]][15:0]  <= wdata[15:0];
-                        1'b1: dmem[address[31:2]][31:16] <= wdata[15:0];
+                `UART_READ_ADDR:  //does nothing cannot write to this addr
+                `CLINT_MSIP_ADDR:      msip_reg        <= write_data[0];
+                `CLINT_MTIMECMP_ADDR:  mtimecmp[31:0]  <= write_data;
+                `CLINT_MTIMECMPH_ADDR: mtimecmph[31:0] <= write_data;
+                `CLINT_MTIMEH_ADDR:    mtimeh          <= write_data;
+
+                default: begin
+                    case(funct3)
+                    3'b000: begin // sb
+                        case(address[1:0])
+                            2'b00: dmem[address[31:2]][7:0]   <= wdata[7:0];
+                            2'b01: dmem[address[31:2]][15:8]  <= wdata[7:0];
+                            2'b10: dmem[address[31:2]][23:16] <= wdata[7:0];
+                            2'b11: dmem[address[31:2]][31:24] <= wdata[7:0];
+                        endcase
+                    end
+                    3'b001: begin // sh 
+                        case(address[1])
+                            1'b0: dmem[address[31:2]][15:0]  <= wdata[15:0];
+                            1'b1: dmem[address[31:2]][31:16] <= wdata[15:0];
+                        endcase
+                    end
+                    3'b010: begin // sw 
+                        dmem[address[31:2]] <= wdata;
+                    end
                     endcase
-                end
-                3'b010: begin // sw 
-                    dmem[address[31:2]] <= wdata;
                 end
             endcase
-        end 
+        end
     end
+
     always @(*) begin
         if(!RW) begin
-            // read
-            case(funct3)
-                3'b000: begin // lb  sign-extend
-                    case(address[1:0])
-                        2'b00: rdata = {{24{dmem[address[31:2]][7]}},   dmem[address[31:2]][7:0]};
-                        2'b01: rdata = {{24{dmem[address[31:2]][15]}},  dmem[address[31:2]][15:8]};
-                        2'b10: rdata = {{24{dmem[address[31:2]][23]}},  dmem[address[31:2]][23:16]};
-                        2'b11: rdata = {{24{dmem[address[31:2]][31]}},  dmem[address[31:2]][31:24]};
-                    endcase
+            case(address)
+                `UART_READ_ADDR:    rdata = {27'b0, rx_ready, 3'b0, tx_ready};
+                `UART_WRITE_ADDR:   rdata = rx_data_output;
+                `CLINT_MSIP_ADDR:   rdata = {31'b0, msip_reg};
+                `CLINT_MTIME_ADDR:  rdata = mtime;
+                `CLINT_MTIMEH_ADDR: rdata = mtimeh;
+                default: begin
+                    case(funct3)
+                    3'b000: begin // lb  sign-extend
+                        case(address[1:0])
+                            2'b00: rdata = {{24{dmem[address[31:2]][7]}},   dmem[address[31:2]][7:0]};
+                            2'b01: rdata = {{24{dmem[address[31:2]][15]}},  dmem[address[31:2]][15:8]};
+                            2'b10: rdata = {{24{dmem[address[31:2]][23]}},  dmem[address[31:2]][23:16]};
+                            2'b11: rdata = {{24{dmem[address[31:2]][31]}},  dmem[address[31:2]][31:24]};
+                        endcase
+                    end
+                    3'b100: begin // lbu zero-extend
+                        case(address[1:0])
+                            2'b00: rdata = {{24{1'b0}}, dmem[address[31:2]][7:0]};
+                            2'b01: rdata = {{24{1'b0}}, dmem[address[31:2]][15:8]};
+                            2'b10: rdata = {{24{1'b0}}, dmem[address[31:2]][23:16]};
+                            2'b11: rdata = {{24{1'b0}}, dmem[address[31:2]][31:24]};
+                        endcase
+                    end
+                    3'b001: begin // lh sign-extend
+                        case(address[1])
+                            1'b0: rdata = {{16{dmem[address[31:2]][15]}}, dmem[address[31:2]][15:0]};
+                            1'b1: rdata = {{16{dmem[address[31:2]][31]}}, dmem[address[31:2]][31:16]};
+                        endcase
+                    end
+                    3'b101: begin // lhu zero-extend
+                        case(address[1])
+                            1'b0: rdata = {{16{1'b0}}, dmem[address[31:2]][15:0]};
+                            1'b1: rdata = {{16{1'b0}}, dmem[address[31:2]][31:16]};
+                        endcase
+                    end
+                    3'b010: begin // lw
+                        rdata = dmem[address[31:2]];
+                    end
+                    default: rdata = 32'b0;
+                endcase
                 end
-                3'b100: begin // lbu zero-extend
-                    case(address[1:0])
-                        2'b00: rdata = {{24{1'b0}}, dmem[address[31:2]][7:0]};
-                        2'b01: rdata = {{24{1'b0}}, dmem[address[31:2]][15:8]};
-                        2'b10: rdata = {{24{1'b0}}, dmem[address[31:2]][23:16]};
-                        2'b11: rdata = {{24{1'b0}}, dmem[address[31:2]][31:24]};
-                    endcase
-                end
-                3'b001: begin // lh sign-extend
-                    case(address[1])
-                        1'b0: rdata = {{16{dmem[address[31:2]][15]}}, dmem[address[31:2]][15:0]};
-                        1'b1: rdata = {{16{dmem[address[31:2]][31]}}, dmem[address[31:2]][31:16]};
-                    endcase
-                end
-                3'b101: begin // lhu zero-extend
-                    case(address[1])
-                        1'b0: rdata = {{16{1'b0}}, dmem[address[31:2]][15:0]};
-                        1'b1: rdata = {{16{1'b0}}, dmem[address[31:2]][31:16]};
-                    endcase
-                end
-                3'b010: begin // lw
-                    rdata = dmem[address[31:2]];
-                end
-                default: rdata = 32'b0;
             endcase
-            end
         end
+    end
+        
+    always @(posedge clk) begin
+        if (rst) begin
+            cpu_read <= 0;
+        end else begin
+            cpu_read <= 0;
+            if (!RW && address == `UART_WRITE_ADDR)
+                cpu_read <= 1;
+        end
+    end
+        
         
     uart_unit #(.DEPTH(32)) uart (
         .clk(clk),
         .rst(rst),
         .uart_fifo_write_en(uart_fifo_write_en),
+        .cpu_read(cpu_read),
+        .rx_line(rx_line),
+        .tx_line(tx_line),
+        .rx_ready(rx_ready),
+        .tx_ready(tx_ready),
         .uart_fifo_data(uart_fifo_data),
-        .fifo_full(fifo_full),
-        .uart_output_line(uart_output_line)
+        .rx_data_output(rx_data_output)
     );
-    
+
 // =========
 //    MMU
 // =========

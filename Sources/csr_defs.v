@@ -124,6 +124,10 @@
 `define MSTATUSH_SBE       4
 `define MSTATUSH_MBE       5
 
+`define MIP_MSIP           3
+`define MIP_MTIP           7
+`define MIP_MEIP           11
+
 // =============
 //  Exceptions
 // =============
@@ -149,4 +153,8 @@
 // ===============
 `define UART_WRITE_ADDR          32'h10000000
 `define UART_READ_ADDR           32'h10000005
-
+`define CLINT_MSIP_ADDR          32'h02000000
+`define CLINT_MTIMECMP_ADDR      32'h02004000
+`define CLINT_MTIMECMPH_ADDR     32'h02004004
+`define CLINT_MTIME_ADDR         32'h0200BFF8
+`define CLINT_MTIMEH_ADDR        32'h0200BFFC

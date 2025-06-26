@@ -39,6 +39,12 @@ module csr_file (
     output wire [1:0]  priv_o,
     output wire [31:0] satp_o,
     output wire [31:0] sstatus_sum
+
+    //interrupts
+    input wire        msip,   
+    input wire        mtip,
+    //uart
+    input wire        meip, 
 );
 `include "csr_defs.v"
 
@@ -239,6 +245,9 @@ always @(*) begin
     mcause_f   = mcause_c;
     mtval_f    = mtval_c;
     mip_f      = mip_c;
+        mip_f[`MIP_MSIP] = msip; 
+        mip_f[`MIP_MTIP] = mtip; 
+        mip_f[`MIP_MEIP] = meip;
     mcycle_f   = mcycle_c;
     if(mcycleh_c == 32'hFFFFFFFF)
         mcycleh_f  = mcycleh_c + 1;

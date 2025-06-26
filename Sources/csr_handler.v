@@ -44,6 +44,12 @@ module csr_handler(
     input  wire [31:0] faulting_va_DMEM,
     output wire        csr_branch_signal,
     output wire [31:0] csr_branch_address,
+
+    //interrupts
+    input wire        msip,   
+    input wire        mtip,
+    //uart
+    input wire        meip,
     
     //forwarding
     input wire [31:0] MEMAlu,
@@ -128,6 +134,11 @@ csr_file csr (
     .csr_rdata_EX(csr_rdata_EX),
     .csr_addr_MEM(csr_addr_MEM),
     .csr_rdata_MEM(csr_rdata_MEM),
+
+    //interrupt
+    .mtip(mtip),
+    .msip(msip),
+    .meip(meip),
 
     //mmu
     .satp_o(csr_satp),

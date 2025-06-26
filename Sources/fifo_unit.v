@@ -32,56 +32,46 @@ module fifo_unit #( parameter DEPTH = 32, parameter WIDTH = 8 ) (
 );
 
     localparam ADDR_WIDTH = clog2(DEPTH);
-
-    reg [WIDTH-1:0] FIFO [DEPTH-1:0];
+    reg [WIDTH-1:0]      FIFO [DEPTH-1:0];
     reg [ADDR_WIDTH-1:0] wr_ptr = 0;
     reg [ADDR_WIDTH-1:0] rd_ptr = 0;
-    reg [ADDR_WIDTH:0]   count  = 0; // one extra bit for full detection
-
+    reg [ADDR_WIDTH:0]   count  = 0; 
+    reg prev_read_en;
+    
     assign fifo_full  = (count >= DEPTH - 3); // conservative
     assign fifo_empty   = (count == 0);
 
     always @(posedge clk) begin
-    if (fifo_write_en)
-        $display("writeData: %h", fifo_write_data);
-    if (fifo_out_valid)
-        $display("fifoOut: %h", fifo_output);
-
-    if (rst) begin
-        wr_ptr         <= 0;
-        rd_ptr         <= 0;
-        count          <= 0;
-        fifo_out_valid <= 0;
-    end else begin
-        fifo_out_valid <= 0;
-
-        case ({fifo_write_en && !fifo_full, fifo_read_en && !fifo_empty})
-            2'b10: begin // write only
+        if (fifo_write_en)
+            $display("writeData: %h", fifo_write_data);
+        if (fifo_out_valid)
+            $display("fifoOut: %h", fifo_output);
+        
+        prev_read_en <= fifo_read_en;
+        if (rst) begin
+            wr_ptr         <= 0;
+            rd_ptr         <= 0;
+            count          <= 0;
+            fifo_out_valid <= 0;
+        end 
+        else begin
+            fifo_out_valid <= 0;
+            if(fifo_write_en && !fifo_full) begin
                 FIFO[wr_ptr] <= fifo_write_data;
                 wr_ptr <= (wr_ptr == DEPTH-1) ? 0 : wr_ptr + 1;
                 count  <= count + 1;
             end
-
-            2'b01: begin // read only
+            if(fifo_read_en && !prev_read_en && !fifo_empty) begin
                 fifo_output    <= FIFO[rd_ptr];
                 rd_ptr         <= (rd_ptr == DEPTH-1) ? 0 : rd_ptr + 1;
-                count          <= count - 1;
                 fifo_out_valid <= 1;
+                if(fifo_write_en && !fifo_full)
+                    count          <= count;
+                else
+                    count          <= count - 1;
             end
-
-            2'b11: begin // simultaneous read and write
-                FIFO[wr_ptr]   <= fifo_write_data;
-                fifo_output    <= FIFO[rd_ptr];
-                wr_ptr         <= (wr_ptr == DEPTH-1) ? 0 : wr_ptr + 1;
-                rd_ptr         <= (rd_ptr == DEPTH-1) ? 0 : rd_ptr + 1;
-                // count stays the same
-                fifo_out_valid <= 1;
-            end
-
-            default: ; // no op
-        endcase
+        end
     end
-end
 
     function integer clog2;
         input integer value;
