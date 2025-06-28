@@ -128,6 +128,10 @@
 `define MIP_MTIP           7
 `define MIP_MEIP           11
 
+`define MIE_MSIE           3
+`define MIE_MTIE           7
+`define MIE_MEIE           11
+
 // =============
 //  Exceptions
 // =============
@@ -147,6 +151,12 @@
 `define EXCEPT_STORE_PAGE_FAULT  5'h0F
 `define EXCEPT_DO_NOTHING        5'h1F
 
+// =============
+//  Interrupts
+// =============
+`define INTER_MSIP        5'h13
+`define INTER_MTIP        5'h17
+`define INTER_MEIP        5'h1B
 
 // ===============
 //   Peripherals

@@ -82,7 +82,7 @@ module dmem(
     wire        tx_line;
     wire        rx_ready;
     wire        tx_ready;
-    reg [31:0]  rx_data_output;
+    wire [31:0]  rx_data_output;
 
 
     //Timer
@@ -116,11 +116,11 @@ module dmem(
                     uart_fifo_write_en <= 1;
                     uart_fifo_data     <= wdata[7:0];
                 end
-                `UART_READ_ADDR:  //does nothing cannot write to this addr
-                `CLINT_MSIP_ADDR:      msip_reg        <= write_data[0];
-                `CLINT_MTIMECMP_ADDR:  mtimecmp[31:0]  <= write_data;
-                `CLINT_MTIMECMPH_ADDR: mtimecmph[31:0] <= write_data;
-                `CLINT_MTIMEH_ADDR:    mtimeh          <= write_data;
+                `UART_READ_ADDR:  begin end//does nothing cannot write to this addr
+                `CLINT_MSIP_ADDR:      msip_reg        <= wdata[0];
+                `CLINT_MTIMECMP_ADDR:  mtimecmp[31:0]  <= wdata;
+                `CLINT_MTIMECMPH_ADDR: mtimecmph[31:0] <= wdata;
+                `CLINT_MTIMEH_ADDR:    mtimeh          <= wdata;
 
                 default: begin
                     case(funct3)

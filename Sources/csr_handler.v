@@ -62,7 +62,7 @@ module csr_handler(
     //MMU
     output wire [1:0]  priv,
     output wire [31:0] csr_satp,
-    output wire [31:0] sstatus_sum
+    output wire        sstatus_sum
     );
     
 `include "csr_defs.v"

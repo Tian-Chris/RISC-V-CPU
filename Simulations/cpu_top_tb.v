@@ -88,7 +88,7 @@ module cpu_top_tb;
   wire [31:0] Out29 = Out[29];
   wire [31:0] Out30 = Out[30];
   wire [31:0] Out31 = Out[31];
-
+  wire        ecall;
   // Instantiate the CPU Top
   cpu_top DUT (
     .clk(clk),
@@ -152,7 +152,8 @@ module cpu_top_tb;
     .Out29(Out[29]),
     .Out30(Out[30]),
     .Out31(Out[31]),
-    .dmem_out(dmem_out)
+    .dmem_out(dmem_out),
+    .ecall(ecall)
   );
   reg [8*100:1] memfiles [1:5];
   integer i;
@@ -189,19 +190,20 @@ module cpu_top_tb;
       while (cycle < 1000 && done == 0) begin
         #20;
         cycle = cycle + 1;
-
+    
         if (Out17 === 32'd93 && Out3 == 32'b01) begin
-          if (Out10 === 32'd0) begin
-            $display("[TEST %0d PASSED]", i);
-                          $display("");
-
-          end else begin
-            $display("[TEST %0d FAILED] gp (x3) = %0d (0x%h)", i, Out10, Out10);
-                            $display("");
-
-          end
-          done = 1;
-        end
+            #40;
+              if (Out10 === 32'd0) begin
+                $display("[TEST %0d PASSED]", i);
+                              $display("");
+    
+              end else begin
+                $display("[TEST %0d FAILED] gp (x3) = %0d (0x%h)", i, Out10, Out10);
+                                $display("");
+    
+              end
+              done = 1;
+            end
       end
 
       if (done == 0) begin

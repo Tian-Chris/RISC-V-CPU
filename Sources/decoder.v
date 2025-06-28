@@ -17,9 +17,11 @@ module decoder (
     output wire [4:0]  IDrd_o,
     output wire [31:0] IDinstCSR_o,
     output wire        invalid_inst,
+    output wire        fence_active,
     output wire        access_is_load_ID,
     output wire        access_is_store_ID,
-    output wire [31:0] faulting_inst
+    output wire [31:0] faulting_inst,
+    output wire        ecall
 );
 `include "inst_defs.v"
 `include "csr_defs.v"
@@ -46,20 +48,12 @@ always @(posedge clk) begin
         IDinstCSR  <= `INST_NOP;   
     end
     else if (!(stall)) begin
-        if (flushOut == 2'b11) begin
+        if (flushOut[0] == 1'b1 || fence_active) begin
             IDinstruct  <= `INST_NOP;
             IDrs1       <= 5'b0;            
             IDrs2       <= 5'b0;
             IDrd        <= 5'b0;
             IDinstCSR  <= 32'b0;                     
-        end
-        else if (flushOut == 2'b01)
-        begin
-            IDinstruct <= `INST_NOP;
-            IDrs1      <= 5'b0;               
-            IDrs2      <= 5'b0;
-            IDrd       <= 5'b0;   
-            IDinstCSR  <= 32'b0;           
         end
         else if(instruction[6:0] == 7'b1110011) begin
             IDinstruct <= instruction;
@@ -86,6 +80,29 @@ always @(posedge clk) begin
         IDinstCSR  <= 32'b0;            
     end
 end
+
+reg [3:0] fence_stall_counter;
+reg fence_stall_active;
+assign fence_active = fence_stall_active || fence;
+always @(posedge clk or posedge rst) begin
+    if (rst || flushOut[1] == 1) begin
+        fence_stall_counter <= 0;
+        fence_stall_active <= 0;
+    end else begin
+        if (fence && !fence_stall_active) begin
+            fence_stall_active <= 1;
+            fence_stall_counter <= 8;  // Stall for 8 cycles
+        end else if (fence_stall_active) begin
+            if (fence_stall_counter > 1)
+                fence_stall_counter <= fence_stall_counter - 1;
+            else begin
+                fence_stall_counter <= 0;
+                fence_stall_active <= 0;
+            end
+        end
+    end
+end
+
     assign IDinstruct_o = IDinstruct;
     assign IDPC_o = IDPC;
     assign IDrs1_o = IDrs1;
@@ -146,12 +163,17 @@ end
         ((IDinstruct & `CSR_INST_MASK)   == `MRET_INST)   ||
         ((IDinstruct & `CSR_INST_MASK)   == `ECALL_INST)  ||
         
-        // NOT ACTUALLY IMPLEMENTED I JUST DON"T WANT TEST TO TRAP
         ((IDinstruct & `INST_FENCE_MASK) == `INST_FENCE)  ||
         ((IDinstruct & `INST_SFENCE_MASK)== `INST_SFENCE) ||
         ((IDinstruct & `INST_IFENCE_MASK)== `INST_IFENCE)
         );
     
+    //fence handling
+    assign fence = 
+        (((IDinstruct & `INST_FENCE_MASK) == `INST_FENCE) ||
+        ((IDinstruct & `INST_SFENCE_MASK)== `INST_SFENCE) ||
+        ((IDinstruct & `INST_IFENCE_MASK)== `INST_IFENCE));
+  
     //for DMEM mmu
     assign access_is_load_ID =   (((IDinstruct & `INST_LB_MASK)    == `INST_LB)     ||
                                   ((IDinstruct & `INST_LBU_MASK)   == `INST_LBU)    ||
@@ -162,4 +184,5 @@ end
                                   ((IDinstruct & `INST_SH_MASK)    == `INST_SH)     ||
                                   ((IDinstruct & `INST_SW_MASK)    == `INST_SW));
     assign faulting_inst = IDinstruct;
+    assign ecall = ((IDinstruct & `CSR_INST_MASK)   == `ECALL_INST);
 endmodule

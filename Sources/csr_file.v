@@ -38,13 +38,13 @@ module csr_file (
     //MMU
     output wire [1:0]  priv_o,
     output wire [31:0] satp_o,
-    output wire [31:0] sstatus_sum
+    output wire        sstatus_sum,
 
     //interrupts
     input wire        msip,   
     input wire        mtip,
     //uart
-    input wire        meip, 
+    input wire        meip
 );
 `include "csr_defs.v"
 
@@ -230,6 +230,8 @@ always @(posedge clk) begin
 end
 
 reg [4:0] csr_trapID_temp;
+wire trap_taken = (csr_trapID_temp != `EXCEPT_DO_NOTHING);
+
 //trap handling
 always @(*) begin
     priv_f     = priv_c;
@@ -249,7 +251,7 @@ always @(*) begin
         mip_f[`MIP_MTIP] = mtip; 
         mip_f[`MIP_MEIP] = meip;
     mcycle_f   = mcycle_c;
-    if(mcycleh_c == 32'hFFFFFFFF)
+    if(mcycle_c == 32'hFFFFFFFF)
         mcycleh_f  = mcycleh_c + 1;
     else
         mcycleh_f  = mcycleh_c;
@@ -260,8 +262,19 @@ always @(*) begin
     stval_f    = stval_c;
     satp_f     = satp_c;
     
-    //exceptions
+    //interrupt
     csr_trapID_temp = csr_trapID;
+    if (mstatus_c[`MSTATUS_MIE]) begin
+        if (mie_c[`MIE_MSIE] && mip_c[`MIP_MSIP]) begin
+            csr_trapID_temp = (1 << 4) + `MIP_MSIP;
+        end else if (mie_c[`MIE_MTIE] && mip_c[`MIP_MTIP]) begin
+            csr_trapID_temp = (1 << 4) + `MIP_MTIP;
+        end else if (mie_c[`MIE_MEIE] && mip_c[`MIP_MEIP]) begin
+            csr_trapID_temp = (1 << 4) + `MIP_MEIP;
+        end
+    end
+    
+    //exceptions
     if(csr_ecall) begin
         $display("ECALL => PC: %h | mtvec: %h | mpec: %h", csr_trapPC, mtvec_c, mepc_c);
     
@@ -271,19 +284,22 @@ always @(*) begin
             `PRIV_MACHINE: csr_trapID_temp  = `EXCEPT_ECALL_M;
         endcase
     end
-    if(csr_trapID_temp != `EXCEPT_DO_NOTHING) begin
+    if(trap_taken) begin
         //Supervisor Mode
-        if(medeleg_c[csr_trapID_temp] && priv_c != `PRIV_MACHINE) begin
+        if((csr_trapID_temp[4] == 0 && medeleg_c[csr_trapID_temp]        && priv_c != `PRIV_MACHINE) ||  // Exception delegation
+           (csr_trapID_temp[4] == 1 && mideleg_c[csr_trapID_temp[3:0]]   && priv_c != `PRIV_MACHINE)) begin
             `ifdef DEBUG 
                 $display("TRAP => PC: %h | stvec: %h | spec: %h", csr_trapPC, stvec_c, sepc_c);
             `endif
             mstatus_f[`MSTATUS_SPIE] = mstatus_f[`MSTATUS_SIE];
             mstatus_f[`MSTATUS_SPP]  = priv_c;
             mstatus_f[`MSTATUS_SIE]  = 1'b0;
-            scause_f                 = {27'b0, csr_trapID_temp[4:0]};
+            if(csr_trapID_temp[4] == 0)
+                scause_f                 = {27'b0, csr_trapID_temp[4:0]};
+            else
+                scause_f                 = {1'b1, 26'b0, csr_trapID_temp[4:0]};
             sepc_f                   = csr_trapPC;
-            //this doesn't do anything
-            priv_f                   = `PRIV_MACHINE;
+            priv_f                   = `PRIV_SUPER;
 
             case (csr_trapID_temp)  
                 `EXCEPT_MISALIGNED_PC:    stval_f = csr_trapPC;              // faulting PC (instruction address misaligned)
@@ -300,9 +316,14 @@ always @(*) begin
                 `EXCEPT_INST_PAGE_FAULT:  stval_f = csr_trapPC;              // faulting PC
                 `EXCEPT_LOAD_PAGE_FAULT:  stval_f = faulting_va_DMEM;  //faulting_load_addr;       // faulting load address
                 `EXCEPT_STORE_PAGE_FAULT: stval_f = faulting_va_DMEM;  //faulting_store_addr;      // faulting store address
+                
+                `INTER_MSIP:              stval_f = 32'h00000000;
+                `INTER_MTIP:              stval_f = 32'h00000000;
+                `INTER_MEIP:              stval_f = 32'h00000000;
                 default:                  stval_f = 32'h00000000;              // default zero
             endcase
         end
+        
         //Machine Mode
         else begin
             `ifdef DEBUG 
@@ -311,9 +332,11 @@ always @(*) begin
             mstatus_f[`MSTATUS_MPIE] = mstatus_f[`MSTATUS_MIE];
             mstatus_f[`MSTATUS_MPP]  = priv_c;
             mstatus_f[`MSTATUS_MIE]  = 1'b0;
-            mcause_f                 = {27'b0, csr_trapID_temp[4:0]};
+            if(csr_trapID_temp[4] == 0)
+                mcause_f                 = {27'b0, csr_trapID_temp[4:0]};
+            else
+                mcause_f                 = {1'b1, 26'b0, csr_trapID_temp[4:0]};
             mepc_f                   = csr_trapPC;
-            //this doesn't do anything
             priv_f                   = `PRIV_MACHINE;
 
             case (csr_trapID_temp)  
@@ -331,6 +354,10 @@ always @(*) begin
                 `EXCEPT_INST_PAGE_FAULT:  mtval_f = csr_trapPC;              // faulting PC
                 `EXCEPT_LOAD_PAGE_FAULT:  mtval_f = faulting_va_DMEM; //faulting_load_addr;       // faulting load address
                 `EXCEPT_STORE_PAGE_FAULT: mtval_f = faulting_va_DMEM; //faulting_store_addr;      // faulting store address
+                
+                `INTER_MSIP:              mtval_f = 32'h00000000;
+                `INTER_MTIP:              mtval_f = 32'h00000000;
+                `INTER_MEIP:              mtval_f = 32'h00000000;
                 default:                  mtval_f = 32'h00000000;              // default zero
             endcase
         end
@@ -384,7 +411,9 @@ always @(posedge clk) begin
         end
 
         //exception
-        else if (csr_trapID_temp != `EXCEPT_DO_NOTHING && medeleg_c[csr_trapID_temp] && priv_c != `PRIV_MACHINE) begin
+        else if (trap_taken && priv_c != `PRIV_MACHINE &&
+        ((csr_trapID_temp[4] == 0 && medeleg_c[csr_trapID_temp]) ||
+         (csr_trapID_temp[4] == 1 && mideleg_c[csr_trapID_temp[3:0]]))) begin
             csr_branch_signal  <= 1'b1;
             if (csr_addr_EX == `stvec_ADDR)
                 csr_branch_address <= csr_rdata_EX;
@@ -394,7 +423,7 @@ always @(posedge clk) begin
                 csr_branch_address <= stvec_c;
         end
 
-        else if(csr_trapID_temp != `EXCEPT_DO_NOTHING) begin
+        else if(trap_taken) begin
             csr_branch_signal  <= 1'b1;
         if (csr_addr_EX == `mtvec_ADDR)
             csr_branch_address <= csr_rdata_EX;

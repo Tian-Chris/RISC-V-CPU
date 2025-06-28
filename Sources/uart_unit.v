@@ -34,7 +34,7 @@ module uart_unit #( parameter DEPTH = 32 ) (
     parameter   BAUD_RATE  = 115200;
     localparam  BAUD_TICKS = CLOCK_FREQ / BAUD_RATE;
     wire        write_fifo_empty;
-    reg         write_fifo_full;
+    wire         write_fifo_full;
     reg         write_fifo_read_en;
     wire        write_fifo_out_valid;
     wire [7:0]  write_fifo_output;

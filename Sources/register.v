@@ -65,10 +65,10 @@ module register(
     // Write operation
     always @(posedge clk) begin
         if(rst) begin
-            RegData[0] = 0;
-            RegData[3]  = 0;   // x3 = gp
-            RegData[10] = 0;   // x10 = a0
-            RegData[17] = 0;   // x17 = a7
+            RegData[0]  = 0;
+            RegData[3]  = 32'hXXXXXXXX;   // x3 = gp
+            RegData[10] = 32'hXXXXXXXX;   // x10 = a0
+            RegData[17] = 32'hXXXXXXXX;   // x17 = a7
         end
         else begin
             `ifdef DEBUG

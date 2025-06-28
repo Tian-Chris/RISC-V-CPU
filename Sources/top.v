@@ -32,12 +32,12 @@ module cpu_top (
     output wire [4:0]  rs1_EXo, rs2_EXo, MEMrdo, WBrdo,
     output wire [2:0]  phto,
     output wire [1:0]  Reg_WBSelIDo, Reg_WBSelEXo, flushOuto,
-    output wire brEqo, brLto, Reg_WEno, PCSelo, stallo, Reg_WEnMEMo, Reg_WEnWBo
+    output wire brEqo, brLto, Reg_WEno, PCSelo, stallo, Reg_WEnMEMo, Reg_WEnWBo, ecall
   `endif
    );
    
    `include "csr_defs.v"
-    
+    wire fence;
     wire [31:0] pc;
     wire [31:0] instruction;
     wire [31:0] alu_out;
@@ -62,7 +62,7 @@ module cpu_top (
     //mmu
     wire  [1:0]  priv;
     wire  [31:0] csr_satp;
-    wire  [31:0] sstatus_sum;
+    wire        sstatus_sum;
     wire        instr_fault_mmu_IMEM;
     wire        load_fault_mmu_IMEM;
     wire        store_fault_mmu_IMEM;
@@ -314,6 +314,7 @@ module cpu_top (
     .PC_Jump(PC_Jump),
     .jump_taken(jump_taken),
     .PC(pc),
+    .fence(fence),
     .PC_savedMEM(PC_savedMEM),
     .mispredict(mispredict),
     .stall(stall),
@@ -323,7 +324,6 @@ module cpu_top (
 
   // Instruction Memory
   imem IMEM (
-    .clk(clk),
     .rst(rst),
     .PC(PPC),
     .inst(instruction),
@@ -350,9 +350,11 @@ module cpu_top (
     .IDrd_o(IDrd),
     .IDinstCSR_o(IDinstCSR),
     .invalid_inst(invalid_inst),
+    .fence_active(fence),
     .faulting_inst(faulting_inst),
     .access_is_load_ID(access_is_load_ID),
-    .access_is_store_ID(access_is_store_ID)
+    .access_is_store_ID(access_is_store_ID),
+    .ecall(ecall)
   );
 
   imm_gen IMM (
