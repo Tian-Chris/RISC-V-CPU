@@ -14,23 +14,19 @@ module imem(
     );
     
     reg [7:0] inst_mem [0:9000];
-    reg [31:0] EPC;
         
     always @(*) begin
-        EPC = PC;
-        if(PC[13] == 1) begin
-            EPC[13] = 0;
-            EPC[11] = 1;
-        end
+
         `ifdef ENDIAN_BIG
-            inst = {inst_mem[EPC], inst_mem[EPC + 1], inst_mem[EPC + 2], inst_mem[EPC + 3]};
+            inst = {inst_mem[PC], inst_mem[PC + 1], inst_mem[PC + 2], inst_mem[PC + 3]};
         `else // default to little endian
-            inst = {inst_mem[EPC + 3], inst_mem[EPC + 2], inst_mem[EPC + 1], inst_mem[EPC]};
+            inst = {inst_mem[PC + 3], inst_mem[PC + 2], inst_mem[PC + 1], inst_mem[PC]};
         `endif
 
         rd  = inst[11:7];
         rs1 = inst[19:15];
         rs2 = inst[24:20];
     end
-
 endmodule
+
+

@@ -10,6 +10,7 @@ module decoder (
     input  wire [4:0]  rs1,
     input  wire [4:0]  rs2,
     input  wire [4:0]  rd,
+    input  wire        csr_branch_signal,
     output wire [31:0] IDinstruct_o,
     output wire [31:0] IDPC_o,
     output wire [4:0]  IDrs1_o,
@@ -48,7 +49,7 @@ always @(posedge clk) begin
         IDinstCSR  <= `INST_NOP;   
     end
     else if (!(stall)) begin
-        if (flushOut[0] == 1'b1 || fence_active) begin
+        if (flushOut[0] == 1'b1 || fence_active || csr_branch_signal) begin
             IDinstruct  <= `INST_NOP;
             IDrs1       <= 5'b0;            
             IDrs2       <= 5'b0;

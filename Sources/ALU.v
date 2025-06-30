@@ -57,9 +57,9 @@ module ALU(
             4'b0010: result = a & b;       //and
             4'b0011: result = a | b;       //or
             4'b0100: result = a ^ b;       //xor
-            4'b0101: result = a << b;      //shift left
-            4'b0110: result = a >> b;      //shift right
-            4'b0111: result = a_s >>> b_s; //shift right arithmetic
+            4'b0101: result = a << b[4:0];      //shift left
+            4'b0110: result = a >> b[4:0];      //shift right
+            4'b0111: result = a_s >>> b_s[4:0]; //shift right arithmetic
             4'b1000: result = (a < b);     //less than
             4'b1001: result = (a_s < b_s); //less than signed
             4'b1010: result = a;           //pass a

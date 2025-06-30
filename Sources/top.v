@@ -343,6 +343,7 @@ module cpu_top (
     .rs1(rs1),
     .rs2(rs2),
     .rd(rd),
+    .csr_branch_signal(EX_csr_branch_signal),
     .IDinstruct_o(IDinstruct),
     .IDPC_o(IDPC),
     .IDrs1_o(IDrs1),
@@ -377,7 +378,6 @@ module cpu_top (
     .pht_indexMEM(pht_indexMEM),
     .PC_Jump(PC_Jump),
     .flush(flush),
-    .csr_branch_signal(csr_branch_signal),
     .jump_taken(jump_taken),
     .PC_saved(PC_saved)
   );
