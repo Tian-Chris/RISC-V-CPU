@@ -41,6 +41,9 @@ module PC(
     end
     always @(posedge clk)
         begin
+             `ifdef DEBUG
+                $display("PC ==> PC: %h | EXBS: %b | EXBA: %h | Stall: %b | PCSEL: %b | jump_taken: %h | mispredict: %h | PC_savedMEM: %h", PC, EX_csr_branch_signal, EX_csr_branch_address, stall, PC_select, jump_taken, mispredict, PC_savedMEM);
+            `endif
             if(rst)
                 PC <= 0;
             else begin
@@ -61,9 +64,6 @@ module PC(
                         else
                             PC <= PC + 4;
                 end
-                `ifdef DEBUG
-                    $display("PC ==> PC: %h | EXBS: %b | EXBA: %h | Stall: %b | PCSEL: %b | jump_taken: %h | mispredict: %h | PC_savedMEM: %h", PC, EX_csr_branch_signal, EX_csr_branch_address, stall, PC_select, jump_taken, mispredict, PC_savedMEM);
-                `endif
             end
         end
 endmodule

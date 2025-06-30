@@ -377,6 +377,7 @@ module cpu_top (
     .pht_indexMEM(pht_indexMEM),
     .PC_Jump(PC_Jump),
     .flush(flush),
+    .csr_branch_signal(csr_branch_signal),
     .jump_taken(jump_taken),
     .PC_saved(PC_saved)
   );

@@ -29,6 +29,7 @@ module jump_branch_unit(
     input  wire        actual_taken,
     input  wire [31:0] pc,
     input  wire [2:0]  pht_indexMEM,
+    input  wire        csr_branch_signal, // Later flush that disables this
 
     output wire [31:0] PC_Jump,
     output wire [1:0]  flush,
@@ -76,6 +77,7 @@ module jump_branch_unit(
             branch_early_prev <= branch_early;
             if (branch_early && !branch_early_prev) begin
                 $display("[PREDICTING] PC = 0x%08h | GHR = %b | pht_index = %b | PHT[%0d] = %b | predict_taken = %b", pc, GHR, pht_index, pht_index, PHT[pht_index], predict_taken);
+                $display("csr_branch %b", csr_branch_signal);
             end
         end
     `endif
@@ -83,5 +85,5 @@ module jump_branch_unit(
     // Output logic
     assign PC_Jump    = (jump_early || predict_taken) ? immID : 32'h00000000;
     assign flush      = (jump_early || predict_taken) ? 2'b01 : 2'b00;
-    assign jump_taken = (jump_early || predict_taken);
+    assign jump_taken = csr_branch_signal ? 1'b0 : (jump_early || predict_taken);
 endmodule
