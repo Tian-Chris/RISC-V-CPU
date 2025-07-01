@@ -324,12 +324,53 @@ module cpu_top (
 
   // Instruction Memory
   imem IMEM (
+    //IMEM
     .rst(rst),
     .PC(PPC),
     .inst(instruction),
     .rd(rd),
     .rs1(rs1),
-    .rs2(rs2)
+    .rs2(rs2),
+
+    //DMEM
+    .clk(clk),
+    .RW(dmemRW),
+    .funct3(funct3),
+    .address(PPC_DMEM),
+    .wdata(MEMrdata2),
+    .rdata(dmem_out),
+
+    //MMU
+    .priv(priv),
+    .csr_satp(csr_satp),
+    .sstatus_sum(sstatus_sum), 
+
+    //CLINT AND UART
+    .mtip(mtip),
+    .msip(msip),
+    .meip(meip),
+
+    //IMEM
+    .VPC_IMEM(pc), 
+    .access_is_load_IMEM(access_is_load_IMEM),
+    .access_is_store_IMEM(access_is_store_IMEM),
+    .access_is_inst_IMEM(access_is_inst_IMEM),
+    .instr_fault_mmu_IMEM(instr_fault_mmu_IMEM),
+    .load_fault_mmu_IMEM(load_fault_mmu_IMEM),
+    .store_fault_mmu_IMEM(store_fault_mmu_IMEM),
+    .faulting_va_IMEM(faulting_va_IMEM),
+    .PC_IMEM(PPC),
+
+    //DMEM
+    .VPC_DMEM(MEMAlu), 
+    .access_is_load_DMEM(access_is_load_MEM),
+    .access_is_store_DMEM(access_is_store_MEM),
+    .access_is_inst_DMEM(access_is_inst_DMEM),
+    .instr_fault_mmu_DMEM(instr_fault_mmu_DMEM),
+    .load_fault_mmu_DMEM(load_fault_mmu_DMEM),
+    .store_fault_mmu_DMEM(store_fault_mmu_DMEM),
+    .faulting_va_DMEM(faulting_va_DMEM),
+    .PC_DMEM(PPC_DMEM)   
     );
  
   // Decoder /IF-ID PIPE
@@ -537,47 +578,5 @@ module cpu_top (
     .WBAlu(WBAlu),
     .WBPC(WBPC),
     .WBSel(Reg_WBSel)
-  );
-  
-  dmem DMEM (
-    .clk(clk),
-    .rst(rst),
-    .RW(dmemRW),
-    .funct3(funct3),
-    .address(PPC_DMEM),
-    .wdata(MEMrdata2),
-    .rdata(dmem_out),
-
-    //MMU
-    .priv(priv),
-    .csr_satp(csr_satp),
-    .sstatus_sum(sstatus_sum), 
-
-    //CLINT AND UART
-    .mtip(mtip),
-    .msip(msip),
-    .meip(meip),
-
-    //IMEM
-    .VPC_IMEM(pc), 
-    .access_is_load_IMEM(access_is_load_IMEM),
-    .access_is_store_IMEM(access_is_store_IMEM),
-    .access_is_inst_IMEM(access_is_inst_IMEM),
-    .instr_fault_mmu_IMEM(instr_fault_mmu_IMEM),
-    .load_fault_mmu_IMEM(load_fault_mmu_IMEM),
-    .store_fault_mmu_IMEM(store_fault_mmu_IMEM),
-    .faulting_va_IMEM(faulting_va_IMEM),
-    .PC_IMEM(PPC),
-
-    //DMEM
-    .VPC_DMEM(MEMAlu), 
-    .access_is_load_DMEM(access_is_load_MEM),
-    .access_is_store_DMEM(access_is_store_MEM),
-    .access_is_inst_DMEM(access_is_inst_DMEM),
-    .instr_fault_mmu_DMEM(instr_fault_mmu_DMEM),
-    .load_fault_mmu_DMEM(load_fault_mmu_DMEM),
-    .store_fault_mmu_DMEM(store_fault_mmu_DMEM),
-    .faulting_va_DMEM(faulting_va_DMEM),
-    .PC_DMEM(PPC_DMEM)   
   );
 endmodule

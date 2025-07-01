@@ -68,7 +68,7 @@ module dmem(
     
     `include "csr_defs.v"
 
-    reg [31:0] dmem [127:0];
+    reg [7:0] dmem [127:0];
     assign exception = ((address[0] || address[1]) && funct3 == 3'b010 ) || //word
                        ((address[0]) && funct3 == 3'b001 ); //haldword
 
@@ -125,21 +125,17 @@ module dmem(
                 default: begin
                     case(funct3)
                     3'b000: begin // sb
-                        case(address[1:0])
-                            2'b00: dmem[address[31:2]][7:0]   <= wdata[7:0];
-                            2'b01: dmem[address[31:2]][15:8]  <= wdata[7:0];
-                            2'b10: dmem[address[31:2]][23:16] <= wdata[7:0];
-                            2'b11: dmem[address[31:2]][31:24] <= wdata[7:0];
-                        endcase
+                        dmem[address]       <= wdata[7:0];
                     end
                     3'b001: begin // sh 
-                        case(address[1])
-                            1'b0: dmem[address[31:2]][15:0]  <= wdata[15:0];
-                            1'b1: dmem[address[31:2]][31:16] <= wdata[15:0];
-                        endcase
+                        dmem[address]       <= wdata[7:0];
+                        dmem[address + 1]   <= wdata[7:0];
                     end
                     3'b010: begin // sw 
-                        dmem[address[31:2]] <= wdata;
+                        dmem[address]       <= wdata[7:0];
+                        dmem[address + 1]   <= wdata[7:0];
+                        dmem[address + 2]   <= wdata[7:0];
+                        dmem[address + 3]   <= wdata[7:0];
                     end
                     endcase
                 end
@@ -158,35 +154,19 @@ module dmem(
                 default: begin
                     case(funct3)
                     3'b000: begin // lb  sign-extend
-                        case(address[1:0])
-                            2'b00: rdata = {{24{dmem[address[31:2]][7]}},   dmem[address[31:2]][7:0]};
-                            2'b01: rdata = {{24{dmem[address[31:2]][15]}},  dmem[address[31:2]][15:8]};
-                            2'b10: rdata = {{24{dmem[address[31:2]][23]}},  dmem[address[31:2]][23:16]};
-                            2'b11: rdata = {{24{dmem[address[31:2]][31]}},  dmem[address[31:2]][31:24]};
-                        endcase
+                        rdata = {{24{dmem[address[7]]}},   dmem[address]};
                     end
                     3'b100: begin // lbu zero-extend
-                        case(address[1:0])
-                            2'b00: rdata = {{24{1'b0}}, dmem[address[31:2]][7:0]};
-                            2'b01: rdata = {{24{1'b0}}, dmem[address[31:2]][15:8]};
-                            2'b10: rdata = {{24{1'b0}}, dmem[address[31:2]][23:16]};
-                            2'b11: rdata = {{24{1'b0}}, dmem[address[31:2]][31:24]};
-                        endcase
+                        rdata = {{24{1'b0}},   dmem[address]};
                     end
                     3'b001: begin // lh sign-extend
-                        case(address[1])
-                            1'b0: rdata = {{16{dmem[address[31:2]][15]}}, dmem[address[31:2]][15:0]};
-                            1'b1: rdata = {{16{dmem[address[31:2]][31]}}, dmem[address[31:2]][31:16]};
-                        endcase
+                        rdata = {{16{dmem[address + 1][7]}}, dmem[address], dmem[address + 1]};
                     end
                     3'b101: begin // lhu zero-extend
-                        case(address[1])
-                            1'b0: rdata = {{16{1'b0}}, dmem[address[31:2]][15:0]};
-                            1'b1: rdata = {{16{1'b0}}, dmem[address[31:2]][31:16]};
-                        endcase
+                        rdata = {{16{1'b0}}, dmem[address], dmem[address + 1]};
                     end
                     3'b010: begin // lw
-                        rdata = dmem[address[31:2]];
+                        rdata = {dmem[address], dmem[address + 1], dmem[address + 2], dmem[address + 3]};
                     end
                     default: rdata = 32'b0;
                 endcase
@@ -241,7 +221,7 @@ always @(*) begin
     exception_IMEM = 1'b0;
     if (csr_satp[31:30] == 2'b01) begin
         l1_addr_IMEM = base_addr_IMEM + (vpn1_IMEM << 2);
-        l1_pte_IMEM = dmem[l1_addr_IMEM];
+        l1_pte_IMEM = {dmem[l1_addr_IMEM], dmem[l1_addr_IMEM + 1], dmem[l1_addr_IMEM + 2], dmem[l1_addr_IMEM + 3]};
 
         //check priv
         if(l1_pte_IMEM[4] == 0 && priv == `PRIV_USER) begin
@@ -260,7 +240,7 @@ always @(*) begin
 
         else if ((l1_pte_IMEM[1] == 0) && (l1_pte_IMEM[2] == 0)) begin //if neither read and write or exec its not a superleaf
             l0_addr_IMEM = {l1_pte_IMEM[31:10], 12'b0} + (vpn0_IMEM << 2);
-            l0_pte_IMEM = dmem[l0_addr_IMEM];
+            l0_pte_IMEM = {dmem[l0_addr_IMEM], dmem[l0_addr_IMEM + 1], dmem[l0_addr_IMEM + 2], dmem[l0_addr_IMEM + 3]};
 
             //check priv
             if(l0_pte_IMEM[4] == 0 && priv == `PRIV_USER) begin
@@ -329,7 +309,7 @@ always @(*) begin
     exception_DMEM = 1'b0;
     if (csr_satp[31:30] == 2'b01) begin
         l1_addr_DMEM = base_addr_DMEM + (vpn1_DMEM << 2);
-        l1_pte_DMEM = dmem[l1_addr_DMEM];
+        l1_pte_DMEM = {dmem[l1_addr_DMEM], dmem[l1_addr_DMEM + 1], dmem[l1_addr_DMEM + 1], dmem[l1_addr_DMEM + 1]};
 
         //check priv
         if(l1_pte_DMEM[4] == 0 && priv == `PRIV_USER) begin
@@ -348,7 +328,7 @@ always @(*) begin
 
         else if ((l1_pte_DMEM[1] == 0) && (l1_pte_DMEM[2] == 0)) begin //if neither read and write or exec its not a superleaf
             l0_addr_DMEM = {l1_pte_DMEM[31:10], 12'b0} + (vpn0_DMEM << 2);
-            l0_pte_DMEM = dmem[l0_addr_DMEM];
+            l0_pte_DMEM = {dmem[l0_addr_DMEM], dmem[l0_addr_DMEM + 1], dmem[l0_addr_DMEM + 2], dmem[l0_addr_DMEM + 3]};
 
             //check priv
             if(l0_pte_DMEM[4] == 0 && priv == `PRIV_USER) begin
