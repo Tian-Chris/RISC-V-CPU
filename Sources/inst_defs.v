@@ -102,3 +102,33 @@
 `define INST_LUI_MASK   `U_MASK
 `define INST_AUIPC      32'h17
 `define INST_AUIPC_MASK `U_MASK
+
+//==================
+// CSR Instructions
+//==================
+`define CSRRW_INST       32'b001_00000_11100_11
+`define CSRRS_INST       32'b010_00000_11100_11
+`define CSRRC_INST       32'b011_00000_11100_11
+`define CSRRWI_INST      32'b101_00000_11100_11
+`define CSRRSI_INST      32'b110_00000_11100_11
+`define CSRRCI_INST      32'b111_00000_11100_11
+`define CSR_INST_MASK    32'b111_00000_11111_11
+
+`define MRET_INST        32'h30200073
+`define SRET_INST        32'h10200073
+`define ECALL_INST       32'h00000073
+
+`define CSR_OPP_DN       4'b0000 //do nothing
+`define CSR_OPP_RW       4'b0001
+`define CSR_OPP_RS       4'b0010
+`define CSR_OPP_RC       4'b0011
+`define CSR_OPP_RWI      4'b0100
+`define CSR_OPP_RSI      4'b0101
+`define CSR_OPP_RCI      4'b0110
+
+`define INST_FENCE       32'hf
+`define INST_FENCE_MASK  32'h707f
+`define INST_SFENCE      32'h12000073
+`define INST_SFENCE_MASK 32'hfe007fff
+`define INST_IFENCE      32'h100f
+`define INST_IFENCE_MASK 32'h707f
