@@ -31,7 +31,6 @@ module jump_branch_unit(
     input  wire [2:0]  pht_indexMEM,
 
     output wire [31:0] PC_Jump,
-    output wire [1:0]  flush,
     output wire        jump_taken,
     output wire [2:0]  pht_index,
     output wire [31:0] PC_saved
@@ -82,6 +81,5 @@ module jump_branch_unit(
     
     // Output logic
     assign PC_Jump    = (jump_early || predict_taken) ? immID : 32'h00000000;
-    assign flush      = (jump_early || predict_taken) ? 2'b01 : 2'b00;
     assign jump_taken = (jump_early || predict_taken);
 endmodule

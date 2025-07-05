@@ -25,7 +25,7 @@ module PC(
     input              rst,
     input  wire [31:0] PC_ALU_input,
     input  wire        PC_select,
-    input  wire        stall,
+    input  wire [3:0]  hazard_signal,
     input  wire [31:0] PC_Jump, //for early jump/branch
     input  wire        jump_taken, //for early jump/branch
     input  wire        mispredict,
@@ -42,7 +42,7 @@ module PC(
     always @(posedge clk)
         begin
              `ifdef DEBUG
-                $display("PC ==> PC: %h | EXBS: %b | EXBA: %h | Stall: %b | PCSEL: %b | jump_taken: %h | mispredict: %h | PC_savedMEM: %h", PC, EX_csr_branch_signal, EX_csr_branch_address, stall, PC_select, jump_taken, mispredict, PC_savedMEM);
+                $display("PC ==> PC: %h | EXBS: %b | EXBA: %h | hazard_signal: %b | PCSEL: %b | jump_taken: %h | mispredict: %h | PC_savedMEM: %h", PC, EX_csr_branch_signal, EX_csr_branch_address, hazard_signal, PC_select, jump_taken, mispredict, PC_savedMEM);
             `endif
             if(rst)
                 PC <= 0;
@@ -55,7 +55,7 @@ module PC(
                     else
                         PC <= PC_ALU_input;
                 end
-                else if(!stall) begin
+                else if(hazard_signal != `STALL_EARLY && hazard_signal != `STALL_MMU) begin
                     if(jump_taken != 0)
                         PC <= PC + PC_Jump - 4;
                     else

@@ -22,7 +22,7 @@
 module csr_handler(
     input  wire        clk,
     input  wire        rst,
-    input  wire [1:0]  flush,
+    input  wire [3:0]  hazard_signal,
     input  wire [31:0] csr_inst,
     input  wire [31:0] csr_rs1,
     
@@ -66,6 +66,7 @@ module csr_handler(
     );
     
 `include "csr_defs.v"
+`include "inst_defs.v"
 //csr read
 wire [3:0]  csr_op_type;       // CSR op: DN. RW/I, RS/I, RC/I
 wire [11:0] csr_raddr;
@@ -192,7 +193,7 @@ assign csr_addr_to_wb = csr_raddr_clocked;
 assign csr_rresult    = csr_rdata_clocked;
 
 always @(*) begin
-    if(flush == 2'b11) begin
+    if(hazard_signal == `FLUSH_ALL) begin
         csr_addr_EX <= 0;
         csr_rdata_EX <= 0;
     end
@@ -202,7 +203,7 @@ always @(*) begin
     end
 end
 always @(posedge clk) begin
-    if(flush == 2'b11 || rst) begin
+    if(hazard_signal == `FLUSH_ALL || rst) begin
         csr_addr_MEM <= 0;
         csr_rdata_MEM <= 0;
     end

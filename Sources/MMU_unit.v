@@ -1,117 +1,183 @@
 module MMU_unit( 
+    input wire clk,
+    input wire rst,
     input  wire [31:0] VPC,         
     input  wire [31:0] csr_satp,    
     input  wire [1:0]  priv,    
+    input  wire        LFM_resolved,
+    input  wire [7:0]  b1, b2, b3, b4,
+    input  wire [3:0]  hazard_signal,
+
 
     //exception    
     input  wire        sstatus_sum, //bit 18
-    input  wire        access_is_load,
-    input  wire        access_is_store,
-    input  wire        access_is_inst,
-    output wire        instr_fault_mmu,
-    output wire        load_fault_mmu,
-    output wire        store_fault_mmu,
+    input  wire        access_is_load, access_is_store, access_is_inst,
+    output wire        instr_fault_mmu, load_fault_mmu, store_fault_mmu,
     output wire [31:0] faulting_va,
+    output reg         stall,
+    output reg  [31:0] LFM,
+    output reg         LFM_enable,
 
     output reg  [31:0] PC          
 );
 `include "csr_defs.v"
+`include "inst_defs.v"
 wire [31:0] base_addr = {csr_satp[21:0], 12'b0};
 wire [9:0]  vpn1 = VPC[31:22];
 wire [9:0]  vpn0 = VPC[21:12];
-
-//level 1
-reg  [31:0] l1_addr;      
 reg  [31:0] l1_pte;      
-
-//level 0
-reg  [31:0] l0_addr;  
 reg  [31:0] l0_pte;
+wire [31:0] l1_addr = base_addr + (vpn1 << 2);
+wire [31:0] l0_addr = {l1_pte[31:10], 12'b0} + (vpn0 << 2);
 
 //exception
 reg         exception;
 
-//read
-output wire        DMEM_en;
-output wire [31:0] DMEM_addr;
-input wire        DMEM_return;
-input wire [31:0] DMEM_out;
-function [31:0] DMEM_read;
-    input [31:0] addr;
-    begin
-        DMEM_en = 1;
-        DMEM_addr = addr;
-        if(DMEM_return)
-            DMEM_read = DMEM_out;
+//FSM
+wire [2:0] IDLE   = 3'b000;
+wire [2:0] LFM1   = 3'b001;
+wire [2:0] READL1 = 3'b010;
+wire [2:0] LFM0   = 3'b011;
+wire [2:0] READL0 = 3'b100;
+wire [2:0] DONE   = 3'b101;
+reg  [2:0] STATE;
+
+ 
+
+always @(posedge clk) begin
+    if(rst) begin
+        stall       <= 0;
+        exception   <= 0;
+        STATE       <= IDLE;
+        PC          <= 32'hDEAD_BEEF;
+        LFM_enable  <= 0; 
     end
-endfunction
-
-
-always @(*) begin
-    exception = 1'b0;
-    if (csr_satp[31:30] == 2'b01) begin
-        l1_addr = base_addr + (vpn1 << 2);
-        l1_pte = DMEM_read(l1_addr);
-
-        //check priv
-        if(l1_pte[4] == 0 && priv == `PRIV_USER) begin
-            exception = 1;
-            PC = 32'hDEAD_BEEF;
-        end else if(l1_pte[4] == 1 && priv == `PRIV_SUPER && sstatus_sum == 0) begin
-            exception = 1;
-            PC = 32'hDEAD_BEEF;
+    else begin
+    case(STATE)
+        IDLE: begin
+            stall       <= 0;
+            exception   <= 0;
+            if (csr_satp[31:30] == 2'b01) begin
+                $display("[MMU] Start translation: VPC=0x%h, satp=0x%h, base_addr=0x%h", VPC, csr_satp, base_addr);
+                $display("[MMU] VPN1=0x%h, VPN0=0x%h", vpn1, vpn0);
+                stall       <= 1;
+                LFM_enable  <= 1;
+                LFM         <= l1_addr; //load from memory
+                STATE       <= LFM1;
+            end
         end
-
-        // check l1 validity
-        else if (l1_pte[0] == 0) begin
-            exception = 1'b1;
-            PC = 32'hDEAD_BEEF;
-        end 
-
-        else if ((l1_pte[1] == 0) && (l1_pte[2] == 0)) begin //if neither read and write or exec its not a superleaf
-            l0_addr = {l1_pte[31:10], 12'b0} + (vpn0 << 2);
-            l0_pte = DMEM_read(l0_addr);
-
+        LFM1: begin
+            LFM_enable  <= 0;
+            if(LFM_resolved) begin
+                $display("[MMU] L1 PTE fetched: PA=0x%h, data=0x%h", l1_addr, {b4,b3,b2,b1});
+                l1_pte  <= {b4,b3,b2,b1};
+                STATE   <= READL1;
+            end
+        end
+        READL1: begin
+            $display("[MMU] L1 PTE decode: V=%b R=%b W=%b X=%b U=%b D=%b A=%b PPN=0x%h", l1_pte[0], l1_pte[1], l1_pte[2], l1_pte[3], l1_pte[4], l1_pte[7], l1_pte[6], l1_pte[31:10]);
             //check priv
+            if(l1_pte[4] == 0 && priv == `PRIV_USER) begin
+                $display("[MMU] Exception! Faulting VA: 0x%h", VPC);
+                $display("[MMU] Fault reason: privilege=%0d, access=inst:%b load:%b store:%b",priv, access_is_inst, access_is_load, access_is_store);
+                exception   <= 1;
+                PC          <= 32'hDEAD_BEEF;
+                STATE       <= DONE;
+            end else if(l1_pte[4] == 1 && priv == `PRIV_SUPER && sstatus_sum == 0) begin
+                $display("[MMU] Exception! Faulting VA: 0x%h", VPC);
+                $display("[MMU] Fault reason: privilege=%0d, access=inst:%b load:%b store:%b",priv, access_is_inst, access_is_load, access_is_store);
+                exception   <= 1;
+                PC          <= 32'hDEAD_BEEF;
+                STATE       <= DONE;
+            end
+            // check l1 validity
+            else if (l1_pte[0] == 0) begin
+                $display("[MMU] L1 invalid: V bit is 0");
+                exception   <= 1'b1;
+                PC          <= 32'hDEAD_BEEF;
+                STATE       <= DONE;
+            end 
+            else if ((l1_pte[1] == 0) && (l1_pte[2] == 0)) begin //if neither read and write or exec its not a superleaf
+                $display("[MMU] L1 is non-leaf, going to L0");
+                LFM_enable  <= 1;
+                LFM         <= l0_addr; //load from memory
+                STATE       <= LFM0;
+            end
+            else begin
+                if ( (access_is_inst && (l1_pte[3] == 0)) ||
+                    (access_is_load  && (l1_pte[1] == 0))  ||
+                    (access_is_store && (l1_pte[2] == 0 || l1_pte[7] == 0)) ) begin //checks dirty bit as well
+                    $display("[MMU] Exception! Faulting VA: 0x%h", VPC);
+                    $display("[MMU] Fault reason: privilege=%0d, access=inst:%b load:%b store:%b",priv, access_is_inst, access_is_load, access_is_store);
+                    // if dirty bit = 0 except -> trap -> os -> sets db to 1
+                    exception   <= 1'b1;
+                    PC          <= 32'hDEAD_BEEF;
+                    STATE       <= DONE;
+                end else begin
+                    $display("[MMU] Translation success (L1 leaf): PA = 0x%h", {l1_pte[31:10], VPC[21:0]});
+                    PC          <= {l1_pte[31:10], VPC[21:0]};
+                    STATE       <= DONE;
+                end 
+            end
+        end
+        LFM0: begin
+            LFM_enable  <= 0;
+            if(LFM_resolved) begin
+                $display("[MMU] L0 PTE fetched: PA=0x%h, data=0x%h", l0_addr, {b4,b3,b2,b1});
+                l0_pte  <= {b4,b3,b2,b1};
+                STATE   <= READL0;
+            end
+        end
+        READL0: begin
+            $display("[MMU] L0 PTE decode: V=%b R=%b W=%b X=%b U=%b D=%b A=%b PPN=0x%h", l0_pte[0], l0_pte[1], l0_pte[2], l0_pte[3], l0_pte[4], l0_pte[7], l0_pte[6], l0_pte[31:10]);
             if(l0_pte[4] == 0 && priv == `PRIV_USER) begin
-                exception = 1;
-                PC = 32'hDEAD_BEEF;
+                $display("[MMU] Exception! Faulting VA: 0x%h", VPC);
+                $display("[MMU] Fault reason: privilege=%0d, access=inst:%b load:%b store:%b",priv, access_is_inst, access_is_load, access_is_store);
+                exception   <= 1;
+                PC          <= 32'hDEAD_BEEF;
+                STATE       <= DONE;
             end else if(l0_pte[4] == 1 && priv == `PRIV_SUPER && sstatus_sum == 0) begin
-                exception = 1;
-                PC = 32'hDEAD_BEEF;
+                $display("[MMU] Exception! Faulting VA: 0x%h", VPC);
+                $display("[MMU] Fault reason: privilege=%0d, access=inst:%b load:%b store:%b",priv, access_is_inst, access_is_load, access_is_store);
+                exception   <= 1;
+                PC          <= 32'hDEAD_BEEF;
+                STATE       <= DONE;
             end
 
             //check l0 valididty
             if (l0_pte[0] == 0) begin
-                exception = 1'b1;
-                PC = 32'hDEAD_BEEF;
+                $display("[MMU] Exception! Faulting VA: 0x%h", VPC);
+                $display("[MMU] Fault reason: privilege=%0d, access=inst:%b load:%b store:%b",priv, access_is_inst, access_is_load, access_is_store);
+                exception   <= 1;
+                PC          <= 32'hDEAD_BEEF;
+                STATE       <= DONE;
             end 
             else if ( (access_is_inst && (l0_pte[3] == 0)) ||
                 (access_is_load  && (l0_pte[1] == 0))       ||
                 (access_is_store && (l0_pte[2] == 0 || l0_pte[7] == 0)) ) begin //checks dirty bit as well
                 // if dirty bit = 0 except -> trap -> os -> sets db to 1
-                exception = 1'b1;
-                PC = 32'hDEAD_BEEF;
+                $display("[MMU] Exception! Faulting VA: 0x%h", VPC);
+                $display("[MMU] Fault reason: privilege=%0d, access=inst:%b load:%b store:%b",priv, access_is_inst, access_is_load, access_is_store);
+                exception   <= 1;
+                PC          <= 32'hDEAD_BEEF;
+                STATE       <= DONE;
             end 
             else begin
-                PC = {l0_pte[31:12], VPC[11:0]};
+                $display("[MMU] Translation success (L0 leaf): PA = 0x%h", {l0_pte[31:12], VPC[11:0]});
+                PC          <= {l0_pte[31:12], VPC[11:0]};
+                STATE       <= DONE;
             end
-        end 
-
-        else begin
-            if ( (access_is_inst && (l1_pte[3] == 0)) ||
-                (access_is_load  && (l1_pte[1] == 0))  ||
-                (access_is_store && (l1_pte[2] == 0 || l1_pte[7] == 0)) ) begin //checks dirty bit as well
-                // if dirty bit = 0 except -> trap -> os -> sets db to 1
-                exception = 1'b1;
-                PC = 32'hDEAD_BEEF;
-            end else begin
-                PC = {l1_pte[31:10], VPC[21:0]};
-            end 
         end
-    end 
-    else
-        PC = VPC;
+        DONE: begin
+            stall <= 0;
+            if(hazard_signal != `STALL_MMU)
+                STATE <= IDLE;
+        end
+        default: begin
+            STATE <= IDLE;
+        end
+    endcase
+    end
 end
 
 //exception

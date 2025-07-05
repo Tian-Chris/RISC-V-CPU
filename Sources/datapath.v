@@ -53,8 +53,7 @@ module datapath(
     output wire [1:0] Reg_WBSelEX,
     
     //flush
-    input  wire [1:0] flushIn,
-    output reg [1:0] flushOut,
+    input  wire [3:0] hazard_signal,
     
     //branch predict
     output reg branch_resolved,
@@ -135,7 +134,7 @@ module datapath(
     );
 
     always @(posedge clk) begin
-        if(rst || flushOut == 2'b11) begin
+        if(rst || hazard_signal == `FLUSH_ALL) begin
             EX_is_jump        <= 0;
             EX_is_branch      <= 0;
             EX_funct3         <= 0;
@@ -202,7 +201,7 @@ module datapath(
         $display("Reg_WBSelID: %b, Reg_WBSelEX: %b", Reg_WBSelID, Reg_WBSelEX);
         $display("forwardA: %b, forwardB: %b, forwardDmem: %b", forwardA, forwardB, forwardDmem);
         $display("forwardBranchA: %b, forwardBranchB: %b", forwardBranchA, forwardBranchB);
-        $display("flushOut: %b", flushOut);
+        $display("hazard_signal: %b", hazard_signal);
         $display("branch_resolved: %b, actual_taken: %b, mispredict: %b", branch_resolved, actual_taken, mispredict);
     end
 
@@ -271,10 +270,6 @@ module datapath(
     end
 
     always @(*) begin //for flush
-        if(PCSel)
-            flushOut = 2'b11;
-        else
-            flushOut = flushIn;
 
         if (MEM_is_jump) begin
             if(jump_taken)

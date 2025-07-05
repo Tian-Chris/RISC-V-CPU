@@ -35,8 +35,9 @@ module cpu_top (
     output wire brEqo, brLto, Reg_WEno, PCSelo, stallo, Reg_WEnMEMo, Reg_WEnWBo, ecall
   `endif
    );
-   
+   `include "inst_defs.v"
    `include "csr_defs.v"
+   
     wire fence;
     wire [31:0] pc;
     wire [31:0] instruction;
@@ -48,7 +49,6 @@ module cpu_top (
     wire        brLt;
     wire        Reg_WEn;
     wire        PCSel;
-    wire        stall;
     wire [1:0]  Reg_WBSelID;
     wire [1:0]  Reg_WBSelEX;
     wire [4:0]  rs1, rs2, rd;
@@ -81,7 +81,8 @@ module cpu_top (
     wire        instr_fault_mmu = instr_fault_mmu_DMEM | instr_fault_mmu_IMEM;
     wire        load_fault_mmu  = load_fault_mmu_DMEM  | load_fault_mmu_IMEM;
     wire        store_fault_mmu = store_fault_mmu_DMEM | store_fault_mmu_IMEM;
-
+    wire [3:0] hazard_signal;
+    
     //ID Stage Reg
     wire  [31:0] IDinstruct;
     wire  [31:0] IDPC;
@@ -113,7 +114,6 @@ module cpu_top (
     //early jump/branch
     wire        jump_early;
     wire        branch_early;
-    wire [1:0]  flush;
     wire [31:0] PC_Jump;
     wire        jump_taken;
     //branch
@@ -122,7 +122,6 @@ module cpu_top (
     wire [2:0]  pht_index;
     wire        mispredict;
     wire [31:0] PC_saved;
-    wire [1:0]  flushOut;
 
     //EX Stage Reg
     reg  [31:0] EXinstruct;
@@ -185,19 +184,16 @@ module cpu_top (
       assign brLto = brLt;
       assign Reg_WEno = Reg_WEn;
       assign PCSelo = PCSel;
-      assign stallo = stall;
       assign Reg_WBSelIDo = Reg_WBSelID;
       assign Reg_WBSelEXo = Reg_WBSelEX;
       assign dmempreo = DMEMPreClockData;
       assign forwardAo = jump_taken;
-      assign forwardBo = flushOut[0];
       assign phto = pht_indexMEM;
       assign MEMAluo = MEMAlu;
       assign wdatao = wdata;
       assign MEMrdo = MEMrd;
       assign WBrdo = WBrd;
       assign MEMrdata2O = MEMrdata2;
-      assign flushOuto = flushOut;
     `endif 
 
     // ID-EX
@@ -297,7 +293,7 @@ module cpu_top (
     
     //Flush
     always @(posedge clk) begin
-        if (flushOut == 2'b11) begin          
+        if (hazard_signal == `FLUSH_ALL) begin          
             EXinstruct  <= `INST_NOP;
             EXrd        <= 5'b0;           
             MEMinstruct <= `INST_NOP;
@@ -317,7 +313,7 @@ module cpu_top (
     .fence(fence),
     .PC_savedMEM(PC_savedMEM),
     .mispredict(mispredict),
-    .stall(stall),
+    .hazard_signal(hazard_signal),
     .EX_csr_branch_signal(EX_csr_branch_signal),
     .EX_csr_branch_address(EX_csr_branch_address)
   );
@@ -326,7 +322,6 @@ module cpu_top (
   imem IMEM (
     //IMEM
     .rst(rst),
-    .PC(PPC),
     .inst(instruction),
     .rd(rd),
     .rs1(rs1),
@@ -336,7 +331,6 @@ module cpu_top (
     .clk(clk),
     .RW(dmemRW),
     .funct3(funct3),
-    .address(PPC_DMEM),
     .wdata(MEMrdata2),
     .rdata(dmem_out),
 
@@ -359,7 +353,6 @@ module cpu_top (
     .load_fault_mmu_IMEM(load_fault_mmu_IMEM),
     .store_fault_mmu_IMEM(store_fault_mmu_IMEM),
     .faulting_va_IMEM(faulting_va_IMEM),
-    .PC_IMEM(PPC),
 
     //DMEM
     .VPC_DMEM(MEMAlu), 
@@ -369,16 +362,14 @@ module cpu_top (
     .instr_fault_mmu_DMEM(instr_fault_mmu_DMEM),
     .load_fault_mmu_DMEM(load_fault_mmu_DMEM),
     .store_fault_mmu_DMEM(store_fault_mmu_DMEM),
-    .faulting_va_DMEM(faulting_va_DMEM),
-    .PC_DMEM(PPC_DMEM)   
+    .faulting_va_DMEM(faulting_va_DMEM)
     );
  
   // Decoder /IF-ID PIPE
   decoder DECODER(
     .clk(clk),
     .rst(rst),
-    .flushOut(flushOut),
-    .stall(stall),
+    .hazard_signal(hazard_signal),
     .instruction(instruction),
     .pc(pc),
     .rs1(rs1),
@@ -418,7 +409,6 @@ module cpu_top (
     .pht_index(pht_index),
     .pht_indexMEM(pht_indexMEM),
     .PC_Jump(PC_Jump),
-    .flush(flush),
     .jump_taken(jump_taken),
     .PC_saved(PC_saved)
   );
@@ -452,8 +442,7 @@ module cpu_top (
     .jump_early(jump_early),
     .branch_early(branch_early),
     .mispredict(mispredict),
-    .flushIn(flush),
-    .flushOut(flushOut),
+    .hazard_signal(hazard_signal),
     .IDmemRead(IDmemRead),
     .branch_resolved(branch_resolved),
     .actual_taken(actual_taken)
@@ -509,7 +498,7 @@ module cpu_top (
   .faulting_inst(faulting_inst),
   .faulting_va_IMEM(faulting_va_IMEM),
   .faulting_va_DMEM(faulting_va_DMEM),
-  .flush(flushOut),
+  .hazard_signal(hazard_signal),
   .csr_inst(EXinstCSR),
   .csr_rs1(EXrdata1),
   .csr_reg_en(EX_csr_reg_en),
@@ -544,7 +533,13 @@ module cpu_top (
     .IFrs2(IFrs2),
     .IDrd(IDrd),
     .IDmemRead(IDmemRead),
-    .stall(stall)
+
+    .PCSel(PCSel),
+    .jump_taken(jump_taken),
+
+    .stall_IMEM(stall_IMEM),
+    .stall_DMEM(stall_DMEM),
+    .hazard_signal(hazard_signal)
   );
   
   ALU ALU (

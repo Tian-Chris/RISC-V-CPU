@@ -3,8 +3,7 @@
 module decoder (
     input  wire        clk,
     input  wire        rst,
-    input  wire        stall,
-    input  wire [1:0]  flushOut,
+    input  wire [3:0]  hazard_signal,
     input  wire [31:0] instruction,
     input  wire [31:0] pc,
     input  wire [4:0]  rs1,
@@ -48,8 +47,8 @@ always @(posedge clk) begin
         IDrd       <= 5'b0; 
         IDinstCSR  <= `INST_NOP;   
     end
-    else if (!(stall)) begin
-        if (flushOut[0] == 1'b1 || fence_active || csr_branch_signal) begin
+    else if (hazard_signal != `STALL_EARLY && hazard_signal != `STALL_MMU) begin
+        if (hazard_signal == `FLUSH_EARLY || hazard_signal == `FLUSH_ALL || fence_active || csr_branch_signal) begin
             IDinstruct  <= `INST_NOP;
             IDrs1       <= 5'b0;            
             IDrs2       <= 5'b0;
@@ -86,7 +85,7 @@ reg [3:0] fence_stall_counter;
 reg fence_stall_active;
 assign fence_active = fence_stall_active || fence;
 always @(posedge clk or posedge rst) begin
-    if (rst || flushOut[1] == 1) begin
+    if (rst || hazard_signal == `FLUSH_EARLY || hazard_signal == `FLUSH_ALL ) begin
         fence_stall_counter <= 0;
         fence_stall_active <= 0;
     end else begin

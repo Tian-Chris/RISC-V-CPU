@@ -25,7 +25,28 @@ module hazard_unit (
     input  wire [4:0] IFrs2,
     input  wire [4:0] IDrd,
     input  wire IDmemRead,
-    output wire stall
+
+    //flush
+    input  wire PCSel,
+    input  wire jump_taken,
+
+    //MMU Stall
+    input  wire stall_IMEM,
+    input  wire stall_DMEM,
+
+    output reg [3:0] hazard_signal
 );
-    assign stall = IDmemRead && (IDrd != 0) && ((IDrd == IFrs1) || (IDrd == IFrs2));
+    `include "inst_defs.v"
+    always @(*) begin
+        if(PCSel)
+            hazard_signal = `FLUSH_ALL;
+        else if(jump_taken)
+            hazard_signal = `FLUSH_EARLY;
+        else if(stall_IMEM || stall_DMEM)
+            hazard_signal = `STALL_MMU;
+        else if(IDmemRead && (IDrd != 0) && ((IDrd == IFrs1) || (IDrd == IFrs2)))
+            hazard_signal = `STALL_EARLY;
+        else
+            hazard_signal = `HS_DN;
+    end
 endmodule

@@ -132,3 +132,13 @@
 `define INST_SFENCE_MASK 32'hfe007fff
 `define INST_IFENCE      32'h100f
 `define INST_IFENCE_MASK 32'h707f
+
+// ==================
+//   Hazard Signals
+// ==================
+
+`define HS_DN               4'b0000
+`define FLUSH_EARLY         4'b0001
+`define FLUSH_ALL           4'b0010
+`define STALL_EARLY         4'b0011
+`define STALL_MMU           4'b0011
