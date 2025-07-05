@@ -21,6 +21,7 @@
 
 
 module ALU(
+    input wire clk,
     input wire [31:0] rdata1, rdata2, PC, imm,
     input wire ASel, BSel,
     input wire [3:0] operation,
@@ -66,5 +67,30 @@ module ALU(
             4'b1011: result = b;           //pass b
             default: result = 32'hXXXXXXXX;
         endcase
+    end
+    
+    always @(posedge clk) begin
+        `ifdef DEBUG_ALU
+            $display("==== ALU DEBUG ====");
+            $display("operation   = %b", operation);
+            $display("ASel        = %b | BSel        = %b", ASel, BSel);
+            $display("PC          = %h", PC);
+            $display("imm         = %h", imm);
+            $display("rdata1      = %h", rdata1);
+            $display("rdata2      = %h", rdata2);
+            $display("aEX (raw)   = %h", aEX);
+            $display("bEX (raw)   = %h", bEX);
+            $display("forwardA    = %b | forwardB    = %b", forwardA, forwardB);
+            $display("MEMAlu      = %h", MEMAlu);
+            $display("WBdmem      = %h", WBdmem);
+            $display("WBAlu       = %h", WBAlu);
+            $display("WBPC + 4    = %h", WBPC + 4);
+            $display("WBSel       = %b", WBSel);
+            $display("wdata       = %h", wdata);
+            $display("ALU Input a = %h", a);
+            $display("ALU Input b = %h", b);
+            $display("Result      = %h", result);
+            $display("===================");
+        `endif
     end
 endmodule

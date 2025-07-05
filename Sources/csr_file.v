@@ -141,6 +141,9 @@ assign csr_status = mstatus_c;
 //write back
 always @(*) begin
     if(csr_wen) begin
+    `ifdef DEBUG_CSR
+        $display("CSR WRITE: addr = 0x%03h, data = 0x%08h", csr_waddr, csr_wdata);
+    `endif
     case(csr_waddr)
         `mstatus_ADDR:   mstatus_f  = (mstatus_f  & ~`mstatus_MASK)  | (csr_wdata & `mstatus_MASK);
         `mstatush_ADDR:  mstatush_f = (mstatush_f & ~`mstatush_MASK) | (csr_wdata & `mstatush_MASK);
@@ -174,8 +177,9 @@ end
 
 always @(posedge clk) begin
     `ifdef DEBUG
+        $display("==== CSR DEBUG ====");
         $display("csr_wen: %b, csr_wdata: %b, csr_waddr: %b", csr_wen, csr_wdata, csr_waddr);
-        $display("CSR => PC: %h | mtvec: %h | mpec: %h | csr_rdata_EX: %h | csr_rdata_MEM: %h | csr_addr_EX: %h | csr_addr_MEM: %h", csr_trapPC, mtvec_c, mepc_c, csr_rdata_EX, csr_rdata_MEM, csr_addr_EX, csr_addr_MEM);
+        $display("CSR => PC: %h | priv: %h | mtvec: %h | mpec: %h | csr_rdata_EX: %h | csr_rdata_MEM: %h | csr_addr_EX: %h | csr_addr_MEM: %h", csr_trapPC, priv_c, mtvec_c, mepc_c, csr_rdata_EX, csr_rdata_MEM, csr_addr_EX, csr_addr_MEM);
     `endif
 
     if (rst) begin
@@ -285,13 +289,23 @@ always @(*) begin
         endcase
     end
     if(trap_taken) begin
+    `ifdef DEBUG_CSR
+        $display("TRAP TAKEN at time %0t", $time);
+        $display(" - Cause ID      : 0x%02h", csr_trapID_temp);
+        $display(" - Faulting PC   : 0x%08h", csr_trapPC);
+        $display(" - Faulting Inst : 0x%08h", faulting_inst);
+        $display(" - Delegated     : %s", ((csr_trapID_temp[4] == 0 && medeleg_c[csr_trapID_temp]) ||
+                                      (csr_trapID_temp[4] == 1 && mideleg_c[csr_trapID_temp[3:0]])) ? "Yes" : "No");
+        $display(" - Privilege     : %0d", priv_c);
+    `endif
+
         //Supervisor Mode
         if((csr_trapID_temp[4] == 0 && medeleg_c[csr_trapID_temp]        && priv_c != `PRIV_MACHINE) ||  // Exception delegation
            (csr_trapID_temp[4] == 1 && mideleg_c[csr_trapID_temp[3:0]]   && priv_c != `PRIV_MACHINE)) begin
             `ifdef DEBUG 
                 $display("TRAP => PC: %h | stvec: %h | spec: %h", csr_trapPC, stvec_c, sepc_c);
             `endif
-            mstatus_f[`MSTATUS_SPIE] = mstatus_f[`MSTATUS_SIE];
+            mstatus_f[`MSTATUS_SPIE] = mstatus_c[`MSTATUS_SIE];
             mstatus_f[`MSTATUS_SPP]  = priv_c;
             mstatus_f[`MSTATUS_SIE]  = 1'b0;
             if(csr_trapID_temp[4] == 0)
@@ -329,7 +343,7 @@ always @(*) begin
             `ifdef DEBUG 
                 $display("TRAP => PC: %h | mtvec: %h | mpec: %h", csr_trapPC, mtvec_c, mepc_c);
             `endif
-            mstatus_f[`MSTATUS_MPIE] = mstatus_f[`MSTATUS_MIE];
+            mstatus_f[`MSTATUS_MPIE] = mstatus_c[`MSTATUS_MIE];
             mstatus_f[`MSTATUS_MPP]  = priv_c;
             mstatus_f[`MSTATUS_MIE]  = 1'b0;
             if(csr_trapID_temp[4] == 0)
@@ -366,15 +380,15 @@ always @(*) begin
     //return
     else if(csr_mret) begin
         $display("MRET => PC: %h | mtvec: %h | mpec: %h | csr_rdata_EX: %h | csr_rdata_MEM: %h | csr_addr_EX: %h | csr_addr_MEM: %h", csr_trapPC, mtvec_c, mepc_c, csr_rdata_EX, csr_rdata_MEM, csr_addr_EX, csr_addr_MEM);
-        priv_f                   = mstatus_f[`MSTATUS_MPP];
-        mstatus_f[`MSTATUS_MIE]  = mstatus_f[`MSTATUS_MPIE];
+        priv_f                   = mstatus_c[`MSTATUS_MPP];
+        mstatus_f[`MSTATUS_MIE]  = mstatus_c[`MSTATUS_MPIE];
         mstatus_f[`MSTATUS_MPIE] = 1'b1;
         mstatus_f[`MSTATUS_MPP]  = 2'b00;
     end
     else if(csr_sret) begin
         $display("SRET => PC: %h | stvec: %h | spec: %h | csr_rdata_EX: %h | csr_rdata_MEM: %h | csr_addr_EX: %h | csr_addr_MEM: %h", csr_trapPC, stvec_c, sepc_c, csr_rdata_EX, csr_rdata_MEM, csr_addr_EX, csr_addr_MEM);
-        priv_f                   = {1'b0, mstatus_f[`MSTATUS_SPP]}; //SPP is only 1 bit
-        mstatus_f[`MSTATUS_SIE]  = mstatus_f[`MSTATUS_SPIE];
+        priv_f                   = {1'b0, mstatus_c[`MSTATUS_SPP]}; //SPP is only 1 bit
+        mstatus_f[`MSTATUS_SIE]  = mstatus_c[`MSTATUS_SPIE];
         mstatus_f[`MSTATUS_SPIE] = 1'b1;
         mstatus_f[`MSTATUS_SPP]  = 1'b0;
     end

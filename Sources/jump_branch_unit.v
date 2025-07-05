@@ -60,16 +60,16 @@ module jump_branch_unit(
 
             // Update GHR
             GHR <= {GHR[1:0], actual_taken};
-            `ifdef DEBUG
+            `ifdef DEBUG_JBU
                 $display("[BRANCH RESOLVED] GHR: %b | Updating PHT[%0d] => %b | actual_taken = %b", GHR, pht_indexMEM, PHT[pht_indexMEM], actual_taken);
             `endif
         end
-        `ifdef DEBUG
+        `ifdef DEBUG_JBU
             $display("JBU => pc: %h | PCSAVED: %h", pc, PC_saved);
         `endif
     end
 
-    `ifdef DEBUG
+    `ifdef DEBUG_JBU
         reg branch_early_prev;
         always @(posedge clk) begin
             branch_early_prev <= branch_early;

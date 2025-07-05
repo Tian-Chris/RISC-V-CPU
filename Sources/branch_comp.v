@@ -21,6 +21,7 @@
 
 
 module branch_comp(
+    input wire clk,
     input wire sign_select,
     input wire [31:0] rdata1,
     input wire [31:0] rdata2,
@@ -51,4 +52,27 @@ module branch_comp(
     
     assign less_than = (!sign_select) ? (r1_s < r2_s) : (a < b);
     assign equal     = (a == b);
+    always @(posedge clk) begin
+    `ifdef DEBUG
+        $display("===== BRANCH COMPARISON =====");
+        $display("WBSel      : %b", WBSel);
+        $display("WBdmem     : %h", WBdmem);
+        $display("WBAlu      : %h", WBAlu);
+        $display("WBPC + 4   : %h", WBPC + 4);
+        $display("Selected wdata  : %h", wdata);
+        $display("forwardBranchA  : %b", forwardBranchA);
+        $display("forwardBranchB  : %b", forwardBranchB);
+        $display("rdata1     : %h", rdata1);
+        $display("rdata2     : %h", rdata2);
+        $display("Selected a : %h", a);
+        $display("Selected b : %h", b);
+        $display("a (signed) : %d", r1_s);
+        $display("b (signed) : %d", r2_s);
+        $display("sign_select  : %b", sign_select);
+        $display("less_than  : %b", less_than);
+        $display("equal      : %b", equal);
+        $display("=============================");
+    `endif
+end
+    
 endmodule

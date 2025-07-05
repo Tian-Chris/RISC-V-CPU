@@ -543,6 +543,7 @@ module cpu_top (
   );
   
   ALU ALU (
+    .clk(clk),
     .rdata1(EXrdata1),
     .rdata2(EXrdata2),
     .PC(EXPC),
@@ -561,6 +562,7 @@ module cpu_top (
   );
 
   branch_comp COMP (
+    .clk(clk),
     .sign_select(branch_signed),
     .rdata1(EXrdata1),
     .rdata2(EXrdata2),

@@ -22,6 +22,7 @@
 
 module datapath_decoder(
     input wire [31:0] instruct,
+    output reg        jump_early,
     output reg        is_jump,
     output reg        is_branch,    //branch earlyresolved
     output reg [2:0]  funct3,
@@ -44,6 +45,7 @@ module datapath_decoder(
         rs1_raw         = instruct[19:15];
         rs2_raw         = instruct[24:20];
         imm_gen_sel     = 3'b000;
+        jump_early      = 1'b0;
         is_jump         = 1'b0;
         uses_reg        = 2'b00;  //for forwarding
         is_branch       = 1'b0;   //branchresolved/branchearly
@@ -289,7 +291,7 @@ module datapath_decoder(
             imm_gen_sel = 3'b011;
             uses_reg    = 2'b11;
             Reg_WBSel   = 2'b00;
-            branch_signed = 1'b1;
+            branch_signed = 1'b1; //??????????????????????
             ALU_ASel    = 1'b1;
             ALU_BSel    = 1'b1;
         end
@@ -307,7 +309,8 @@ module datapath_decoder(
         //   Jump
         // ==========
         else if ((instruct & `INST_JAL_MASK)   == `INST_JAL)   begin
-            is_jump  = 1;
+            jump_early  = 1;
+            is_jump     = 1;
             imm_gen_sel = 3'b101;
             uses_reg    = 2'b00;
             Reg_WEn     = 1'b1;
@@ -335,6 +338,7 @@ module datapath_decoder(
             branch_signed = 1'b1;
             ALU_ASel    = 1'b1;
             ALU_BSel    = 1'b1;
+            ALU_Sel     = 4'b1011;
         end
         else if ((instruct & `INST_AUIPC_MASK) == `INST_AUIPC) begin
             imm_gen_sel = 3'b100;

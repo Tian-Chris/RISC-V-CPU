@@ -70,6 +70,7 @@ module datapath(
     );
     
     //ID Stage Signals
+    wire        ID_jump_early;
     wire        ID_is_jump;
     wire        ID_is_branch;
     wire [2:0]  ID_funct3;
@@ -84,7 +85,7 @@ module datapath(
     wire [1:0]  ID_uses_reg;
     wire [4:0]  ID_rs1_raw;
     wire [4:0]  ID_rs2_raw;
-
+    
     //EX Stage Signals
     reg        EX_is_jump;
     reg        EX_is_branch;
@@ -121,6 +122,7 @@ module datapath(
         .rs1_raw(ID_rs1_raw),
         .rs2_raw(ID_rs2_raw), 
         .imm_gen_sel(ID_imm_gen_sel),
+        .jump_early(ID_jump_early),
         .is_jump(ID_is_jump),
         .uses_reg(ID_uses_reg),
         .is_branch(ID_is_branch), 
@@ -192,23 +194,27 @@ module datapath(
             WB_Reg_WEn        <= MEM_Reg_WEn;
             WB_Reg_WBSel      <= MEM_Reg_WBSel;
         end
-        
-        $display("=== Signal Values ===");
-        $display("jump_early: %b, branch_early: %b, funct3: %b", jump_early, branch_early, funct3);
-        $display("PCSel: %b, Reg_WEn: %b, imm_gen_sel: %b", PCSel, Reg_WEn, imm_gen_sel);
-        $display("branch_signed: %b, ALU_BSel: %b, ALU_ASel: %b, ALU_Sel: %b", branch_signed, ALU_BSel, ALU_ASel, ALU_Sel);
-        $display("dmemRW: %b, Reg_WBSel: %b, IDmemRead: %b", dmemRW, Reg_WBSel, IDmemRead);
-        $display("Reg_WBSelID: %b, Reg_WBSelEX: %b", Reg_WBSelID, Reg_WBSelEX);
-        $display("forwardA: %b, forwardB: %b, forwardDmem: %b", forwardA, forwardB, forwardDmem);
-        $display("forwardBranchA: %b, forwardBranchB: %b", forwardBranchA, forwardBranchB);
-        $display("hazard_signal: %b", hazard_signal);
-        $display("branch_resolved: %b, actual_taken: %b, mispredict: %b", branch_resolved, actual_taken, mispredict);
+        `ifdef DEBUG_DATAPATH
+            $display("=== Signal Values ===");
+            $display("instruct: %h", instruct);
+            $display("ID_jump_early: %b, branch_early: %b, ID_funct3: %b", ID_jump_early, branch_early, ID_funct3);
+            $display("PCSel: %b, ID_Reg_WEn: %b, ID_imm_gen_sel: %b", PCSel, ID_Reg_WEn, ID_imm_gen_sel);
+            $display("ID_branch_signed: %b, ID_ALU_BSel: %b, ID_ALU_ASel: %b, ID_ALU_Sel: %b", ID_branch_signed, ID_ALU_BSel, ID_ALU_ASel, ID_ALU_Sel);
+            $display("ID_dmemRW: %b, ID_Reg_WBSel: %b", ID_dmemRW, ID_Reg_WBSel);
+            $display("Reg_WBSelID: %b, Reg_WBSelEX: %b", Reg_WBSelID, Reg_WBSelEX);
+            $display("forwardA: %b, forwardB: %b, forwardDmem: %b", forwardA, forwardB, forwardDmem);
+            $display("forwardBranchA: %b, forwardBranchB: %b", forwardBranchA, forwardBranchB);
+            $display("hazard_signal: %b", hazard_signal);
+            $display("branch_resolved: %b, actual_taken: %b, mispredict: %b", branch_resolved, actual_taken, mispredict);
+            $display("FORWARD DEBUG | rs1_EX=%d rs2_EX=%d | MEMrd=%d | WBrd=%d | MEM_is_branch=%b | forwardA=%b | forwardBranchA=%b", 
+             rs1_EX, rs2_EX, MEMrd, WBrd, MEM_is_branch, forwardA, forwardBranchA);
+        `endif
     end
 
     // =============
     //    Outputs
     // =============
-    assign jump_early    = ID_is_jump;
+    assign jump_early    = ID_jump_early;
     assign branch_early  = ID_is_branch;
     assign imm_gen_sel   = ID_imm_gen_sel;
     assign Reg_WEn       = WB_Reg_WEn;
@@ -235,7 +241,7 @@ module datapath(
         forwardBranchA = 2'b00;
         forwardBranchB = 2'b00;
 
-        if (MEM_is_branch) begin
+        if (EX_is_branch) begin
             // Forward for branch comparison only
             if (MEM_Reg_WEn && MEMrd != 0 && MEMrd == rs1_EX)
                 forwardBranchA = 2'b10;
@@ -270,7 +276,6 @@ module datapath(
     end
 
     always @(*) begin //for flush
-
         if (MEM_is_jump) begin
             if(jump_taken)
                 PCSel = 0;
