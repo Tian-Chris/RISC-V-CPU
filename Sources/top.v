@@ -21,23 +21,20 @@
 
 module cpu_top (
   input wire clk,
-  input wire rst
+  input wire rst,
+  output wire ecall
   // Debug outputs
   `ifdef DEBUG
-    , output wire [31:0] pco, instructiono, alu_outo, immo, rdata1o, rdata2o, MEMrdata2O, 
-                       dmempreo, dmem_out, forwardAo, forwardBo, MEMAluo, wdatao, Out0, 
+    , output wire [31:0] pco, instructiono, alu_outo, immo, rdata1o, rdata2o, Out0, 
                        Out1, Out2, Out3, Out4, Out5, Out6, Out7, Out8, Out9, Out10, Out11, 
                        Out12, Out13, Out14, Out15, Out16, Out17, Out18, Out19, Out20, Out21, 
                        Out22, Out23, Out24, Out25, Out26, Out27, Out28, Out29, Out30, Out31,
-    output wire [4:0]  rs1_EXo, rs2_EXo, MEMrdo, WBrdo,
-    output wire [2:0]  phto,
-    output wire [1:0]  Reg_WBSelIDo, Reg_WBSelEXo, flushOuto,
-    output wire brEqo, brLto, Reg_WEno, PCSelo, stallo, Reg_WEnMEMo, Reg_WEnWBo, ecall
+   output wire [1:0] privo
   `endif
    );
    `include "inst_defs.v"
    `include "csr_defs.v"
-   
+
     wire fence;
     wire [31:0] pc;
     wire [31:0] instruction;
@@ -157,6 +154,7 @@ module cpu_top (
     wire [31:0] MEM_csr_addr_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
     reg         access_is_load_MEM;
     reg         access_is_store_MEM;
+    wire [31:0] dmem_out;
     
     //WB Stage Reg
     reg  [31:0] WBinstruct;
@@ -174,26 +172,13 @@ module cpu_top (
     
     //debug
     `ifdef DEBUG
-      assign pco = pc;
+      assign pco          = pc;
       assign instructiono = instruction; 
-      assign alu_outo = alu_out;
-      assign immo = imm;
-      assign rdata1o = rdata1;
-      assign rdata2o = rdata2;
-      assign brEqo = brEq;
-      assign brLto = brLt;
-      assign Reg_WEno = Reg_WEn;
-      assign PCSelo = PCSel;
-      assign Reg_WBSelIDo = Reg_WBSelID;
-      assign Reg_WBSelEXo = Reg_WBSelEX;
-      assign dmempreo = DMEMPreClockData;
-      assign forwardAo = jump_taken;
-      assign phto = pht_indexMEM;
-      assign MEMAluo = MEMAlu;
-      assign wdatao = wdata;
-      assign MEMrdo = MEMrd;
-      assign WBrdo = WBrd;
-      assign MEMrdata2O = MEMrdata2;
+      assign alu_outo     = alu_out;
+      assign immo         = imm;
+      assign rdata1o      = rdata1;
+      assign rdata2o      = rdata2;
+      assign privo        = priv;
     `endif 
 
     // ID-EX
@@ -446,13 +431,6 @@ module cpu_top (
     .IDmemRead(IDmemRead),
     .branch_resolved(branch_resolved),
     .actual_taken(actual_taken)
-    
-    `ifdef DEBUG
-      , .Reg_WEnMEMo(Reg_WEnMEMo),
-      .Reg_WEnWBo(Reg_WEnWBo),
-      .rs1_EXo(rs1_EXo),
-      .rs2_EXo(rs2_EXo)
-    `endif
   );    
 
   register RF (
@@ -574,6 +552,12 @@ module cpu_top (
     .WBdmem(WBdmem),
     .WBAlu(WBAlu),
     .WBPC(WBPC),
-    .WBSel(Reg_WBSel)
+    .WBSel(Reg_WBSel),
+
+    //csr forward
+    .MEM_csr_reg_en(MEM_csr_reg_en),
+    .WB_csr_reg_en(WB_csr_reg_en),
+    .MEM_csr_rresult(MEM_csr_rresult),
+    .WB_csr_rresult(WB_csr_rresult)
   );
 endmodule

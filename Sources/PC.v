@@ -35,13 +35,21 @@ module PC(
     input  wire [31:0] EX_csr_branch_address,
     input  wire        fence
     );
-    
+    `ifdef DEBUG_ALL
+        `define DEBUG_PC
+    `endif
     initial begin
         PC <= 0;
     end
     always @(posedge clk)
         begin
-             `ifdef DEBUG
+            `ifdef DEBUG
+                $display("");
+                $display("==========");
+                $display("PC: %h", PC);
+            `endif 
+            `ifdef DEBUG_PC
+                $display("===========  PC  ===========");
                 $display("PC ==> PC: %h | EXBS: %b | EXBA: %h | hazard_signal: %b | PCSEL: %b | jump_taken: %h | mispredict: %h | PC_savedMEM: %h", PC, EX_csr_branch_signal, EX_csr_branch_address, hazard_signal, PC_select, jump_taken, mispredict, PC_savedMEM);
             `endif
             if(rst)

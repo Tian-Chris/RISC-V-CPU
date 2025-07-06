@@ -59,15 +59,10 @@ module datapath(
     output reg branch_resolved,
     output reg actual_taken,
     output reg mispredict
-
-    //debug
-    `ifdef DEBUG
-        , output wire Reg_WEnMEMo,
-        output wire Reg_WEnWBo,
-        output wire [4:0] rs1_EXo,
-        output wire [4:0] rs2_EXo
-    `endif
     );
+    `ifdef DEBUG_ALL
+        `define DEBUG_DATAPATH
+    `endif
     
     //ID Stage Signals
     wire        ID_jump_early;
@@ -165,6 +160,10 @@ module datapath(
                 WB_Reg_WEn        <= 0;
                 WB_Reg_WBSel      <= 0;
             end
+            else begin
+                WB_Reg_WEn        <= MEM_Reg_WEn;
+                WB_Reg_WBSel      <= MEM_Reg_WBSel;
+            end
         end
         else begin
             EX_is_jump        <= ID_is_jump;
@@ -195,10 +194,11 @@ module datapath(
             WB_Reg_WBSel      <= MEM_Reg_WBSel;
         end
         `ifdef DEBUG_DATAPATH
-            $display("=== Signal Values ===");
+            $display("===========  DATAPATH  ===========");
             $display("instruct: %h", instruct);
             $display("ID_jump_early: %b, branch_early: %b, ID_funct3: %b", ID_jump_early, branch_early, ID_funct3);
             $display("PCSel: %b, ID_Reg_WEn: %b, ID_imm_gen_sel: %b", PCSel, ID_Reg_WEn, ID_imm_gen_sel);
+            $display("ID_Reg_WBSel: %b, EX_Reg_WBSel: %b, MEM_Reg_WBSel: %b, WB_Reg_WBSel: %b", ID_Reg_WBSel, EX_Reg_WBSel, MEM_Reg_WBSel, WB_Reg_WBSel);
             $display("ID_branch_signed: %b, ID_ALU_BSel: %b, ID_ALU_ASel: %b, ID_ALU_Sel: %b", ID_branch_signed, ID_ALU_BSel, ID_ALU_ASel, ID_ALU_Sel);
             $display("ID_dmemRW: %b, ID_Reg_WBSel: %b", ID_dmemRW, ID_Reg_WBSel);
             $display("Reg_WBSelID: %b, Reg_WBSelEX: %b", Reg_WBSelID, Reg_WBSelEX);
@@ -312,12 +312,4 @@ module datapath(
             actual_taken = 0;
         end
     end
-
-    //debug
-    `ifdef DEBUG
-        assign Reg_WEnMEMo = MEM_Reg_WEn;
-        assign Reg_WEnWBo = WB_Reg_WEn;
-        assign rs1_EXo = rs1_EX;
-        assign rs2_EXo = rs2_EX;
-    `endif
 endmodule

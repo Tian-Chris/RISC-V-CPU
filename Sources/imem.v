@@ -56,6 +56,9 @@ module imem #(parameter MEMSIZE = 15000) (
 
     );
     `include "csr_defs.v"
+    `ifdef DEBUG_ALL
+        `define DEBUG_IMEM
+    `endif
     reg [7:0] unified_mem [0:MEMSIZE];
     wire virtual_mode = (csr_satp[31:30] == 2'b01);
     
@@ -139,7 +142,10 @@ module imem #(parameter MEMSIZE = 15000) (
     always @(posedge clk) begin
         uart_fifo_write_en <= 0;
         if(RW && (hazard_signal != `STALL_MMU)) begin
-            $display("[MEM] Write: addr=0x%08h, data=0x%08h", DMEM_Addr, wdata);
+            `ifdef DEBUG_IMEM
+                $display("===========  IMEM  ===========");
+                $display("[MEM] Write: addr=0x%08h, data=0x%08h", DMEM_Addr, wdata);
+            `endif
             case(DMEM_Addr)
 
                 `UART_WRITE_ADDR: begin

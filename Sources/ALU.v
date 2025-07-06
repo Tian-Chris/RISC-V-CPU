@@ -34,6 +34,10 @@ module ALU(
     input wire [1:0] forwardB,
     output reg [31:0] result //consider swapping to wire
     );
+    `ifdef DEBUG_ALL
+        `define DEBUG_ALU
+    `endif
+        
     wire [31:0] wdata;
     wire [31:0] aEX, bEX;
     wire [31:0] a, b;
@@ -71,7 +75,7 @@ module ALU(
     
     always @(posedge clk) begin
         `ifdef DEBUG_ALU
-            $display("==== ALU DEBUG ====");
+            $display("===========  ALU  ===========");
             $display("operation   = %b", operation);
             $display("ASel        = %b | BSel        = %b", ASel, BSel);
             $display("PC          = %h", PC);
@@ -90,7 +94,6 @@ module ALU(
             $display("ALU Input a = %h", a);
             $display("ALU Input b = %h", b);
             $display("Result      = %h", result);
-            $display("===================");
         `endif
     end
 endmodule

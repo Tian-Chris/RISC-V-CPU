@@ -64,9 +64,16 @@ module csr_handler(
     output wire [31:0] csr_satp,
     output wire        sstatus_sum
     );
-    
 `include "csr_defs.v"
 `include "inst_defs.v"
+`ifdef DEBUG_ALL
+    `define DEBUG_CSR
+`endif
+`ifdef DEBUG_CSR
+    always @(posedge clk)
+        $display("===========  CSR  ===========");
+`endif 
+
 //csr read
 wire [3:0]  csr_op_type;       // CSR op: DN. RW/I, RS/I, RC/I
 wire [11:0] csr_raddr;
@@ -163,7 +170,7 @@ always @(*) begin
 end
 
 always @(posedge clk) begin
-    `ifdef DEBUG
+    `ifdef DEBUG_CSR
         $display("CSR Write => WBSel: %b | WBdmem: %h | WBAlu: %h | MEMAlu: %h | WBPC+4: %h | wdata: %h | forwardA: %b | csr_rs1: %h | csr_rs1_val: %h",
             WBSel, WBdmem, WBAlu, MEMAlu, WBPC + 4, wdata, forwardA, csr_rs1, csr_rs1_val);
     `endif 

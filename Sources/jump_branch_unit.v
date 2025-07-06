@@ -61,11 +61,11 @@ module jump_branch_unit(
             // Update GHR
             GHR <= {GHR[1:0], actual_taken};
             `ifdef DEBUG_JBU
-                $display("[BRANCH RESOLVED] GHR: %b | Updating PHT[%0d] => %b | actual_taken = %b", GHR, pht_indexMEM, PHT[pht_indexMEM], actual_taken);
+                $display("[JBU] [BRANCH RESOLVED] GHR: %b | Updating PHT[%0d] => %b | actual_taken = %b", GHR, pht_indexMEM, PHT[pht_indexMEM], actual_taken);
             `endif
         end
         `ifdef DEBUG_JBU
-            $display("JBU => pc: %h | PCSAVED: %h", pc, PC_saved);
+            $display("[JBU] JBU => pc: %h | PCSAVED: %h", pc, PC_saved);
         `endif
     end
 
@@ -74,7 +74,7 @@ module jump_branch_unit(
         always @(posedge clk) begin
             branch_early_prev <= branch_early;
             if (branch_early && !branch_early_prev) begin
-                $display("[PREDICTING] PC = 0x%08h | GHR = %b | pht_index = %b | PHT[%0d] = %b | predict_taken = %b", pc, GHR, pht_index, pht_index, PHT[pht_index], predict_taken);
+                $display("[JBU] [PREDICTING] PC = 0x%08h | GHR = %b | pht_index = %b | PHT[%0d] = %b | predict_taken = %b", pc, GHR, pht_index, pht_index, PHT[pht_index], predict_taken);
             end
         end
     `endif

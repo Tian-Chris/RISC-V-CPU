@@ -38,7 +38,6 @@ module register(
     input  wire [31:0] WB_csr_addr_to_wb, 
     output wire [31:0] rdata1, rdata2
      
-    // debug output
     `ifdef DEBUG
      , output wire [31:0] Out0, Out1, Out2, Out3, Out4, Out5, Out6, Out7, Out8, Out9, 
                       Out10, Out11, Out12, Out13, Out14, Out15, Out16, Out17, Out18,
@@ -46,7 +45,10 @@ module register(
                       Out28, Out29, Out30, Out31
      `endif
 );
-    // Register file
+    `ifdef DEBUG_ALL
+        `define DEBUG_REGISTER
+    `endif
+
     reg [31:0] RegData [31:0];
     wire write_enable_I;
     // Write-back data select
@@ -56,13 +58,11 @@ module register(
                    (WBSel == 2'b01) ? ALU_out : PC + 4;
     //csr writes to rd
     assign write_enable_I = (WB_csr_reg_en == 1'b1) ? 1'b1 : write_enable;
-    
     //wb to csr reg 
     assign WB_csr_wben   = WB_csr_reg_en;
     assign WB_csr_wbaddr = (WB_csr_reg_en == 1) ? WB_csr_addr_to_wb : 1'b0;
     assign WB_csr_wbdata = (WB_csr_reg_en == 1) ? WB_csr_data_to_wb : 1'b0;
 
-    // Write operation
     always @(posedge clk) begin
         if(rst) begin
             RegData[0]  = 0;
@@ -71,23 +71,19 @@ module register(
             RegData[17] = 32'hXXXXXXXX;   // x17 = a7
         end
         else begin
-            `ifdef DEBUG
-                $display("rd: %b,r1: %b,r2: %b, wdata: %h, write_enable: %b, write_enable_I: %b, WB_csr_reg_en: %b, WB_csr_rresult: %h, WB_csr_data_to_wb: %h, WB_csr_wbaddr: %h", rd, r1, r2, wdata, write_enable, write_enable_I, WB_csr_reg_en, WB_csr_rresult, WB_csr_data_to_wb, WB_csr_wbaddr);
+            `ifdef DEBUG_REGISTER
+                $display("===========  REGISTER  ===========");
+                $display("rd: %b,r1: %b,r2: %b, wdata: %h, WBSel: %b, write_enable: %b, write_enable_I: %b, WB_csr_reg_en: %b, WB_csr_rresult: %h, WB_csr_data_to_wb: %h, WB_csr_wbaddr: %h", rd, r1, r2, wdata, WBSel, write_enable, write_enable_I, WB_csr_reg_en, WB_csr_rresult, WB_csr_data_to_wb, WB_csr_wbaddr);
             `endif
             if (write_enable_I && rd != 0)
                 RegData[rd] <= wdata;
         end
     end
-
-    // Combinational read
     assign rdata1 = (r1 == 0) ? 32'b0 :
                     ((r1 == rd) && write_enable_I && rd != 0) ? wdata : RegData[r1];
-
     assign rdata2 = (r2 == 0) ? 32'b0 :
                     ((r2 == rd) && write_enable_I && rd != 0) ? wdata : RegData[r2];
 
-
-    // Debug outputs
     `ifdef DEBUG
         assign Out0 = RegData[0];     assign Out1 = RegData[1];     assign Out2 = RegData[2];     assign Out3 = RegData[3];
         assign Out4 = RegData[4];     assign Out5 = RegData[5];     assign Out6 = RegData[6];     assign Out7 = RegData[7];

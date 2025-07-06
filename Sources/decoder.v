@@ -25,6 +25,9 @@ module decoder (
 );
 `include "inst_defs.v"
 `include "csr_defs.v"
+`ifdef DEBUG_ALL
+    `define DEBUG_DECODER
+`endif
 
 reg [31:0] IDinstruct;
 reg [31:0] IDPC;
@@ -34,9 +37,8 @@ reg [4:0]  IDrd;
 reg [31:0]  IDinstCSR;
     
 always @(posedge clk) begin
-    `ifdef DEBUG
-        $display(" ");
-        $display("PC: %h", pc);
+    `ifdef DEBUG_DECODER
+        $display("===========  DECODER  ===========");
         $display("Invalid Instruction: %b, IDins: %h, IDPC: %h, IDrs1, %h, IDrd: %h, IDinstCSR: %h", invalid_inst, IDinstruct, IDPC, IDrs1, IDrd, IDinstCSR);
     `endif
     if(rst) begin
