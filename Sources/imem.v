@@ -4,7 +4,7 @@
 // Module Name: imem
 //////////////////////////////////////////////////////////////////////////////////
 
-module imem #(parameter MEMSIZE = 15000) (
+module imem #(parameter MEMSIZE = 70000) (
     //IMEM
     input  wire        rst,
     output reg  [31:0] inst,
@@ -139,13 +139,17 @@ module imem #(parameter MEMSIZE = 15000) (
     // ========
     //   DMEM
     // ========
+    reg [31:0] rdataclked;
     always @(posedge clk) begin
+        `ifdef DEBUG_IMEM
+            $display("===========  IMEM  ===========");
+            $display("[MEM] RW: %b, addr=%h, data=%h, rdata=%h", RW, DMEM_Addr, wdata, rdata);
+            $display("[MEM] 0 %h", unified_mem[32'h00000000]);
+            $display("[MEM] aec8: %h, aecc: %h", unified_mem[32'h0000aec8], unified_mem[32'h0000aecc]);
+        `endif
         uart_fifo_write_en <= 0;
+        rdataclked <= rdata;
         if(RW && (hazard_signal != `STALL_MMU)) begin
-            `ifdef DEBUG_IMEM
-                $display("===========  IMEM  ===========");
-                $display("[MEM] Write: addr=0x%08h, data=0x%08h", DMEM_Addr, wdata);
-            `endif
             case(DMEM_Addr)
 
                 `UART_WRITE_ADDR: begin
@@ -180,7 +184,10 @@ module imem #(parameter MEMSIZE = 15000) (
         end
     end
 always @(*) begin
-    if (!RW && (hazard_signal != `STALL_MMU)) begin
+    `ifdef DEBUG_IMEM
+        $display("hazard_signal: %b, funct3: %b", hazard_signal, funct3);
+    `endif
+    if ((!RW) && (hazard_signal != `STALL_MMU)) begin
         case (DMEM_Addr)
             `UART_READ_ADDR:    rdata = {27'b0, rx_ready, 3'b0, tx_ready};
             `UART_WRITE_ADDR:   rdata = rx_data_output;

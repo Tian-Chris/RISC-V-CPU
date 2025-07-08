@@ -141,4 +141,4 @@
 `define FLUSH_EARLY         4'b0001
 `define FLUSH_ALL           4'b0010
 `define STALL_EARLY         4'b0011
-`define STALL_MMU           4'b0011
+`define STALL_MMU           4'b0100

@@ -43,10 +43,14 @@ module hazard_unit (
         else if(jump_taken)
             hazard_signal = `FLUSH_EARLY;
         else if(stall_IMEM || stall_DMEM)
-            hazard_signal = `STALL_MMU;
+            hazard_signal = `STALL_MMU; 
         else if(IDmemRead && (IDrd != 0) && ((IDrd == IFrs1) || (IDrd == IFrs2)))
-            hazard_signal = `STALL_EARLY;
+            hazard_signal = `STALL_EARLY; 
         else
             hazard_signal = `HS_DN;
+        `ifdef DEBUG_HAZARD
+            $display("===========  HAZARD  ===========");
+            $display("hazard_signal: %b", hazard_signal);
+        `endif
     end
 endmodule

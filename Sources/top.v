@@ -311,7 +311,8 @@ module cpu_top (
     .rd(rd),
     .rs1(rs1),
     .rs2(rs2),
-
+    .hazard_signal(hazard_signal),
+    
     //DMEM
     .clk(clk),
     .RW(dmemRW),
