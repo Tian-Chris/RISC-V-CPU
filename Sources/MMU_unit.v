@@ -45,6 +45,10 @@ reg  [2:0] STATE;
  
 
 always @(posedge clk) begin
+    `ifdef DEBUG_MMU
+        $display("===========  MMU  ===========");
+        $display("MMU => State: %h, Stall: %h, priv: %h, except: %h, ", STATE, stall, priv, exception);
+    `endif
     if(rst) begin
         stall       <= 0;
         exception   <= 0;
@@ -57,7 +61,7 @@ always @(posedge clk) begin
         IDLE: begin
             stall       <= 0;
             exception   <= 0;
-            if (csr_satp[31:30] == 2'b01) begin
+            if (csr_satp[31] && priv != `PRIV_MACHINE) begin
                 $display("[MMU] Start translation: VPC=0x%h, satp=0x%h, base_addr=0x%h", VPC, csr_satp, base_addr);
                 $display("[MMU] VPN1=0x%h, VPN0=0x%h", vpn1, vpn0);
                 stall       <= 1;

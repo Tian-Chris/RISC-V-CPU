@@ -60,7 +60,7 @@ module imem #(parameter MEMSIZE = 70000) (
         `define DEBUG_IMEM
     `endif
     reg [7:0] unified_mem [0:MEMSIZE];
-    wire virtual_mode = (csr_satp[31:30] == 2'b01);
+    wire virtual_mode = (csr_satp[31] && priv != `PRIV_MACHINE);
     
     //MMU
     reg         LFM_resolved_IMEM;
@@ -145,7 +145,8 @@ module imem #(parameter MEMSIZE = 70000) (
             $display("===========  IMEM  ===========");
             $display("[MEM] RW: %b, addr=%h, data=%h, rdata=%h", RW, DMEM_Addr, wdata, rdata);
             $display("[MEM] 0 %h", unified_mem[32'h00000000]);
-            $display("[MEM] aec8: %h, aecc: %h", unified_mem[32'h0000aec8], unified_mem[32'h0000aecc]);
+            $display("[MEM] aec8: %h%h%h%h, aecc: %h%h%h%h af54: %h%h%h%h", unified_mem[32'h0000aecB],unified_mem[32'h0000aeca],unified_mem[32'h0000aec9],unified_mem[32'h0000aec8], unified_mem[32'h0000aecf],
+            unified_mem[32'h0000aece],unified_mem[32'h0000aecd],unified_mem[32'h0000aecc], unified_mem[32'h0000af57], unified_mem[32'h0000af56], unified_mem[32'h0000af55], unified_mem[32'h0000af54]);
         `endif
         uart_fifo_write_en <= 0;
         rdataclked <= rdata;
@@ -262,6 +263,9 @@ end
     wire [3:0] LFMD4  = 4'b1000;
     reg  [3:0] STATE;
     always @(posedge clk ) begin
+    `ifdef DEBUG_IMEM
+        $display("IMEM => State: %h, virtual_mode: %h, LFM_enable_IMEM: %h, LFM_enable_DMEM: %h", STATE, virtual_mode, LFM_enable_IMEM, LFM_enable_DMEM);
+    `endif
         case(STATE)
             IDLE: begin
                 LFM_resolved_IMEM <= 0;

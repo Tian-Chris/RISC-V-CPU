@@ -105,6 +105,9 @@ reg  [31:0] rdata;
 always @(*) begin
     rdata = 32'b0; //do i need this?
     if(csr_ren) begin
+    `ifdef DEBUG_CSR
+        $display("[CSR] READ ADDR: %h", csr_raddr);
+    `endif 
     case(csr_raddr)
         `mstatus_ADDR:   rdata = (mstatus_c  & `mstatus_MASK);
         `mstatush_ADDR:  rdata = (mstatush_c & `mstatush_MASK);
@@ -143,7 +146,7 @@ assign csr_status = mstatus_c;
 always @(*) begin
     if(csr_wen) begin
     `ifdef DEBUG_CSR
-        $display("CSR WRITE: addr = 0x%03h, data = 0x%08h", csr_waddr, csr_wdata);
+        $display("[CSR] WRITE: addr = 0x%03h, data = 0x%08h", csr_waddr, csr_wdata);
     `endif
     case(csr_waddr)
         `mstatus_ADDR:   mstatus_f  = (mstatus_f  & ~`mstatus_MASK)  | (csr_wdata & `mstatus_MASK);
@@ -178,8 +181,15 @@ end
 
 always @(posedge clk) begin
     `ifdef DEBUG_CSR
+        if(csr_ren)
+             $display("[CSR] READ ADDR: %h, data: %h", csr_raddr, rdata);
         $display("csr_wen: %b, csr_wdata: %b, csr_waddr: %b", csr_wen, csr_wdata, csr_waddr);
-        $display("CSR => PC: %h | priv: %h | mtvec: %h | mpec: %h | csr_rdata_EX: %h | csr_rdata_MEM: %h | csr_addr_EX: %h | csr_addr_MEM: %h", csr_trapPC, priv_c, mtvec_c, mepc_c, csr_rdata_EX, csr_rdata_MEM, csr_addr_EX, csr_addr_MEM);
+        $display("CSRS: trapPC: %h | priv: %h", csr_trapPC, priv_c);
+        $display("CSRS: csr_rdata_EX: %h | csr_rdata_MEM: %h | csr_addr_EX: %h | csr_addr_MEM: %h", csr_rdata_EX, csr_rdata_MEM, csr_addr_EX, csr_addr_MEM);
+        $display("CSRS: mtvec: %h | stvec: %h", mtvec_c, stvec_c,);
+        $display("CSRS: mpec: %h | sepc: %h",  mepc_c, sepc_c,);
+        $display("CSRS: medeleg: %h | mideleg: %h",  medeleg_c, mideleg_c,);
+        $display("CSRS: satp: %h",  satp_c);
     `endif
 
     if (rst) begin
@@ -281,7 +291,7 @@ always @(*) begin
     //exceptions
     if(csr_ecall) begin
         `ifdef DEBUG_CSR
-            $display("ECALL => PC: %h | mtvec: %h | mpec: %h", csr_trapPC, mtvec_c, mepc_c);
+            $display("[ECALL] PC: %h | mtvec: %h | mpec: %h", csr_trapPC, mtvec_c, mepc_c);
         `endif
         case(priv_c)
             `PRIV_USER: csr_trapID_temp     = `EXCEPT_ECALL_U;
@@ -303,7 +313,7 @@ always @(*) begin
         if((csr_trapID_temp[4] == 0 && medeleg_c[csr_trapID_temp]        && priv_c != `PRIV_MACHINE) ||  // Exception delegation
            (csr_trapID_temp[4] == 1 && mideleg_c[csr_trapID_temp[3:0]]   && priv_c != `PRIV_MACHINE)) begin
             `ifdef DEBUG_CSR
-                $display("TRAP => PC: %h | stvec: %h | spec: %h", csr_trapPC, stvec_c, sepc_c);
+                $display("[TRAP] PC: %h | stvec: %h | spec: %h", csr_trapPC, stvec_c, sepc_c);
             `endif
             mstatus_f[`MSTATUS_SPIE] = mstatus_c[`MSTATUS_SIE];
             mstatus_f[`MSTATUS_SPP]  = priv_c;
@@ -341,7 +351,7 @@ always @(*) begin
         //Machine Mode
         else begin
             `ifdef DEBUG_CSR
-                $display("TRAP => PC: %h | mtvec: %h | mpec: %h", csr_trapPC, mtvec_c, mepc_c);
+                $display("[TRAP] PC: %h | mtvec: %h | mpec: %h", csr_trapPC, mtvec_c, mepc_c);
             `endif
             mstatus_f[`MSTATUS_MPIE] = mstatus_c[`MSTATUS_MIE];
             mstatus_f[`MSTATUS_MPP]  = priv_c;
@@ -380,7 +390,7 @@ always @(*) begin
     //return
     else if(csr_mret) begin
         `ifdef DEBUG_CSR
-            $display("MRET => PC: %h | mtvec: %h | mpec: %h | csr_rdata_EX: %h | csr_rdata_MEM: %h | csr_addr_EX: %h | csr_addr_MEM: %h", csr_trapPC, mtvec_c, mepc_c, csr_rdata_EX, csr_rdata_MEM, csr_addr_EX, csr_addr_MEM);
+            $display("[MRET] PC: %h | mtvec: %h | mpec: %h | csr_rdata_EX: %h | csr_rdata_MEM: %h | csr_addr_EX: %h | csr_addr_MEM: %h", csr_trapPC, mtvec_c, mepc_c, csr_rdata_EX, csr_rdata_MEM, csr_addr_EX, csr_addr_MEM);
         `endif
         priv_f                   = mstatus_c[`MSTATUS_MPP];
         mstatus_f[`MSTATUS_MIE]  = mstatus_c[`MSTATUS_MPIE];
@@ -389,7 +399,7 @@ always @(*) begin
     end
     else if(csr_sret) begin
         `ifdef DEBUG_CSR
-            $display("SRET => PC: %h | stvec: %h | spec: %h | csr_rdata_EX: %h | csr_rdata_MEM: %h | csr_addr_EX: %h | csr_addr_MEM: %h", csr_trapPC, stvec_c, sepc_c, csr_rdata_EX, csr_rdata_MEM, csr_addr_EX, csr_addr_MEM);
+            $display("[SRET] PC: %h | stvec: %h | spec: %h | csr_rdata_EX: %h | csr_rdata_MEM: %h | csr_addr_EX: %h | csr_addr_MEM: %h", csr_trapPC, stvec_c, sepc_c, csr_rdata_EX, csr_rdata_MEM, csr_addr_EX, csr_addr_MEM);
         `endif
         priv_f                   = {1'b0, mstatus_c[`MSTATUS_SPP]}; //SPP is only 1 bit
         mstatus_f[`MSTATUS_SIE]  = mstatus_c[`MSTATUS_SPIE];
@@ -399,6 +409,10 @@ always @(*) begin
 end
 
 always @(posedge clk) begin
+    `ifdef DEBUG_CSR
+        $display("CSR: branch signal: %h", csr_branch_signal);
+        $display("CSR: branch address: %h", csr_branch_address);
+    `endif 
     if (rst) begin
         csr_branch_signal  <= 1'b0;
         csr_branch_address <= 32'b0;

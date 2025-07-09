@@ -87,7 +87,7 @@ wire        csr_sret;
 
 // Forwarding values for CSR rs1
 wire [31:0] csr_rs1_val;
-wire  [1:0] wdata;
+wire [31:0] wdata;
 assign wdata = (WBSel == 2'b00) ? WBdmem : 
                (WBSel == 2'b01) ? WBAlu : WBPC + 4;
 assign csr_rs1_val = forwardA[1] ? MEMAlu : (forwardA[0] ? wdata : csr_rs1);
@@ -173,6 +173,8 @@ always @(posedge clk) begin
     `ifdef DEBUG_CSR
         $display("CSR Write => WBSel: %b | WBdmem: %h | WBAlu: %h | MEMAlu: %h | WBPC+4: %h | wdata: %h | forwardA: %b | csr_rs1: %h | csr_rs1_val: %h",
             WBSel, WBdmem, WBAlu, MEMAlu, WBPC + 4, wdata, forwardA, csr_rs1, csr_rs1_val);
+        $display("csr_data_to_wb: %h, csr_addr_to_wb: %h", csr_data_to_wb, csr_addr_to_wb);
+        $display("csr_wben: %h, csr_wbaddr: %h, csr_wbdata: %h", csr_wben, csr_wbaddr, csr_wbdata);
     `endif 
 
     if(rst) begin
