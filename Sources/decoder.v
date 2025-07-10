@@ -9,7 +9,6 @@ module decoder (
     input  wire [4:0]  rs1,
     input  wire [4:0]  rs2,
     input  wire [4:0]  rd,
-    input  wire        csr_branch_signal,
     output wire [31:0] IDinstruct_o,
     output wire [31:0] IDPC_o,
     output wire [4:0]  IDrs1_o,
@@ -50,7 +49,7 @@ always @(posedge clk) begin
         IDinstCSR  <= `INST_NOP;   
     end
     else if (hazard_signal != `STALL_EARLY && hazard_signal != `STALL_MMU) begin
-        if (hazard_signal == `FLUSH_EARLY || hazard_signal == `FLUSH_ALL || fence_active || csr_branch_signal) begin
+        if (hazard_signal == `FLUSH_EARLY || hazard_signal == `FLUSH_ALL || fence_active) begin
             IDinstruct  <= `INST_NOP;
             IDrs1       <= 5'b0;            
             IDrs2       <= 5'b0;

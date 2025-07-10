@@ -71,8 +71,8 @@ always @(posedge clk) begin
             end
         end
         LFM1: begin
-            LFM_enable  <= 0;
             if(LFM_resolved) begin
+                LFM_enable  <= 0;
                 $display("[MMU] L1 PTE fetched: PA=0x%h, data=0x%h", l1_addr, {b4,b3,b2,b1});
                 l1_pte  <= {b4,b3,b2,b1};
                 STATE   <= READL1;
@@ -80,8 +80,14 @@ always @(posedge clk) begin
         end
         READL1: begin
             $display("[MMU] L1 PTE decode: V=%b R=%b W=%b X=%b U=%b D=%b A=%b PPN=0x%h", l1_pte[0], l1_pte[1], l1_pte[2], l1_pte[3], l1_pte[4], l1_pte[7], l1_pte[6], l1_pte[31:10]);
+            if (^l1_pte === 1'bx) begin
+                $display("[MMU] l1_pte contains x or z");
+                exception <= 1'b1;
+                PC        <= 32'hDEAD_BEEF;
+                STATE     <= DONE;
+            end
             //check priv
-            if(l1_pte[4] == 0 && priv == `PRIV_USER) begin
+            else if(l1_pte[4] == 0 && priv == `PRIV_USER) begin
                 $display("[MMU] Exception! Faulting VA: 0x%h", VPC);
                 $display("[MMU] Fault reason: privilege=%0d, access=inst:%b load:%b store:%b",priv, access_is_inst, access_is_load, access_is_store);
                 exception   <= 1;
@@ -134,7 +140,13 @@ always @(posedge clk) begin
         end
         READL0: begin
             $display("[MMU] L0 PTE decode: V=%b R=%b W=%b X=%b U=%b D=%b A=%b PPN=0x%h", l0_pte[0], l0_pte[1], l0_pte[2], l0_pte[3], l0_pte[4], l0_pte[7], l0_pte[6], l0_pte[31:10]);
-            if(l0_pte[4] == 0 && priv == `PRIV_USER) begin
+            if (^l0_pte === 1'bx) begin
+                $display("[MMU] l0_pte contains x or z");
+                exception <= 1'b1;
+                PC        <= 32'hDEAD_BEEF;
+                STATE     <= DONE;
+            end
+            else if(l0_pte[4] == 0 && priv == `PRIV_USER) begin
                 $display("[MMU] Exception! Faulting VA: 0x%h", VPC);
                 $display("[MMU] Fault reason: privilege=%0d, access=inst:%b load:%b store:%b",priv, access_is_inst, access_is_load, access_is_store);
                 exception   <= 1;

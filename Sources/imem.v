@@ -35,6 +35,8 @@ module imem #(parameter MEMSIZE = 70000) (
     output wire        store_fault_mmu_IMEM,
     output wire [31:0] faulting_va_IMEM,
     output wire [31:0] PPC_IMEM,
+    output wire        stall_IMEM,
+
 
     //DMEM
     input  wire [31:0] VPC_DMEM, 
@@ -46,6 +48,7 @@ module imem #(parameter MEMSIZE = 70000) (
     output wire        store_fault_mmu_DMEM,
     output wire [31:0] faulting_va_DMEM,
     output wire [31:0] PPC_DMEM,
+    output wire        stall_DMEM,
 
     //CLINT
     output wire        msip,   
@@ -65,13 +68,11 @@ module imem #(parameter MEMSIZE = 70000) (
     //MMU
     reg         LFM_resolved_IMEM;
     reg [7:0]   b1_IMEM, b2_IMEM, b3_IMEM, b4_IMEM;
-    wire        stall_IMEM;
     wire [31:0] LFM_IMEM;
     wire        LFM_enable_IMEM;
 
     reg         LFM_resolved_DMEM;
     reg [7:0]   b1_DMEM, b2_DMEM, b3_DMEM, b4_DMEM;
-    wire        stall_DMEM;
     wire [31:0] LFM_DMEM;
     wire        LFM_enable_DMEM;
     
@@ -261,6 +262,7 @@ end
     wire [3:0] LFMD2  = 4'b0110;
     wire [3:0] LFMD3  = 4'b0111;
     wire [3:0] LFMD4  = 4'b1000;
+    wire [3:0] STALL  = 4'b1001;
     reg  [3:0] STATE;
     always @(posedge clk ) begin
     `ifdef DEBUG_IMEM
@@ -290,7 +292,7 @@ end
             LFMI4: begin
                 b4_IMEM             <= unified_mem[LFM_IMEM + 3];
                 LFM_resolved_IMEM   <= 1;
-                STATE               <= IDLE;
+                STATE               <= STALL;
             end
             LFMD: begin
                 b1_DMEM <= unified_mem[LFM_DMEM];
@@ -307,8 +309,12 @@ end
             LFMD4: begin
                 b4_DMEM       <= unified_mem[LFM_DMEM + 3];
                 LFM_resolved_DMEM   <= 1;
-                STATE               <= IDLE;
+                STATE               <= STALL;
             end
+            STALL:
+                STATE <= IDLE;
+            default:
+                STATE <= IDLE;
         endcase
     end
 
@@ -329,7 +335,7 @@ end
         .access_is_inst(access_is_inst_IMEM),
         .instr_fault_mmu(instr_fault_mmu_IMEM),
         .load_fault_mmu(load_fault_mmu_IMEM), 
-        .store_fault_mmu(store_fault_mmu),
+        .store_fault_mmu(store_fault_mmu_IMEM),
         .faulting_va(faulting_va_IMEM),
         .stall(stall_IMEM),
         .LFM(LFM_IMEM),
@@ -355,7 +361,7 @@ end
         .access_is_inst(access_is_inst_DMEM),
         .instr_fault_mmu(instr_fault_mmu_DMEM),
         .load_fault_mmu(load_fault_mmu_DMEM), 
-        .store_fault_mmu(store_fault_mmu),
+        .store_fault_mmu(store_fault_mmu_DMEM),
         .faulting_va(faulting_va_DMEM),
         .stall(stall_DMEM),
         .LFM(LFM_DMEM),

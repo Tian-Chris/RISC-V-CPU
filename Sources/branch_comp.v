@@ -85,7 +85,6 @@ module branch_comp(
         $display("sign_select  : %b", sign_select);
         $display("less_than  : %b", less_than);
         $display("equal      : %b", equal);
-        $display("=============================");
     `endif
 end
     

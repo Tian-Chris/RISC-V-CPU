@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 //////////////////////////////////////////////////////////////////////////////////
-// Company: 
+// Company: Chris Tian
 // Engineer: 
 // 
 // Create Date: 05/23/2025 10:19:14 AM
@@ -64,6 +64,7 @@ module cpu_top (
     wire        load_fault_mmu_IMEM;
     wire        store_fault_mmu_IMEM;
     wire [31:0] faulting_va_IMEM;
+    wire [31:0] faulting_va_IMEM_ID;
     wire        access_is_load_IMEM = 0;
     wire        access_is_store_IMEM = 0;
     wire        access_is_inst_IMEM = 1;
@@ -75,9 +76,6 @@ module cpu_top (
     wire [31:0] faulting_va_DMEM;
     wire        access_is_inst_DMEM = 0;
     wire [31:0] PPC_DMEM;
-    wire        instr_fault_mmu = instr_fault_mmu_DMEM | instr_fault_mmu_IMEM;
-    wire        load_fault_mmu  = load_fault_mmu_DMEM  | load_fault_mmu_IMEM;
-    wire        store_fault_mmu = store_fault_mmu_DMEM | store_fault_mmu_IMEM;
     wire [3:0] hazard_signal;
     
     //ID Stage Reg
@@ -94,20 +92,17 @@ module cpu_top (
     //exception
     wire  [4:0]  trapID;
     wire         pc_misaligned       = (pc[1:0] != 2'b00);
-    wire         invalid_inst;  // the signal
-    wire  [31:0] faulting_inst; // the inst
-
-    assign trapID = pc_misaligned   ? `EXCEPT_MISALIGNED_PC    :
-                    invalid_inst    ? `EXCEPT_ILLEGAL_INST     : 
-                    instr_fault_mmu ? `EXCEPT_INST_PAGE_FAULT  : 
-                    instr_fault_mmu ? `EXCEPT_LOAD_PAGE_FAULT  :
-                    instr_fault_mmu ? `EXCEPT_STORE_PAGE_FAULT :`EXCEPT_DO_NOTHING;
+    wire         invalid_inst;      // the signal
+    wire  [31:0] faulting_inst;     // the inst
+    wire  [31:0] faulting_inst_ID;  // the inst in id
 
     //interrupt
     wire mtip;
     wire msip;
     wire meip;
-
+    wire stall_IMEM;
+    wire stall_DMEM;
+    
     //early jump/branch
     wire        jump_early;
     wire        branch_early;
@@ -338,7 +333,8 @@ module cpu_top (
     .instr_fault_mmu_IMEM(instr_fault_mmu_IMEM),
     .load_fault_mmu_IMEM(load_fault_mmu_IMEM),
     .store_fault_mmu_IMEM(store_fault_mmu_IMEM),
-    .faulting_va_IMEM(faulting_va_IMEM),
+    .faulting_va_IMEM(faulting_va_IMEM_ID),
+    .stall_IMEM(stall_IMEM),
 
     //DMEM
     .VPC_DMEM(MEMAlu), 
@@ -348,7 +344,8 @@ module cpu_top (
     .instr_fault_mmu_DMEM(instr_fault_mmu_DMEM),
     .load_fault_mmu_DMEM(load_fault_mmu_DMEM),
     .store_fault_mmu_DMEM(store_fault_mmu_DMEM),
-    .faulting_va_DMEM(faulting_va_DMEM)
+    .faulting_va_DMEM(faulting_va_DMEM),
+    .stall_DMEM(stall_DMEM)
     );
  
   // Decoder /IF-ID PIPE
@@ -361,16 +358,15 @@ module cpu_top (
     .rs1(rs1),
     .rs2(rs2),
     .rd(rd),
-    .csr_branch_signal(EX_csr_branch_signal),
     .IDinstruct_o(IDinstruct),
     .IDPC_o(IDPC),
     .IDrs1_o(IDrs1),
     .IDrs2_o(IDrs2),
     .IDrd_o(IDrd),
     .IDinstCSR_o(IDinstCSR),
-    .invalid_inst(invalid_inst),
     .fence_active(fence),
-    .faulting_inst(faulting_inst),
+    .invalid_inst(invalid_inst),
+    .faulting_inst(faulting_inst_ID),
     .access_is_load_ID(access_is_load_ID),
     .access_is_store_ID(access_is_store_ID),
     .ecall(ecall)
@@ -470,10 +466,8 @@ module cpu_top (
   csr_handler CSR (
   .clk(clk),
   .rst(rst),
-  
-  //trap
   .csr_trapID(trapID),
-  .csr_trapPC(pc),
+  .csr_trapPC(MEMPC),
   .faulting_inst(faulting_inst),
   .faulting_va_IMEM(faulting_va_IMEM),
   .faulting_va_DMEM(faulting_va_DMEM),
@@ -497,7 +491,7 @@ module cpu_top (
   .forwardA(forwardA),
 
   //mmu
-  .priv(priv),
+  .priv_o(priv),
   .csr_satp(csr_satp),
   .sstatus_sum(sstatus_sum),
 
@@ -508,17 +502,35 @@ module cpu_top (
   );
   
   hazard_unit HAZARD (
+    .clk(clk),
+    .rst(rst),
     .IFrs1(IFrs1),
     .IFrs2(IFrs2),
     .IDrd(IDrd),
     .IDmemRead(IDmemRead),
-
+    .csr_branch_signal(EX_csr_branch_signal)
     .PCSel(PCSel),
     .jump_taken(jump_taken),
 
     .stall_IMEM(stall_IMEM),
     .stall_DMEM(stall_DMEM),
-    .hazard_signal(hazard_signal)
+    .hazard_signal(hazard_signal),
+
+    //except
+    .pc_misaligned(pc_misaligned),
+    .invalid_inst(invalid_inst),
+    .instr_fault_mmu_DMEM(instr_fault_mmu_DMEM), 
+    .load_fault_mmu_DMEM(load_fault_mmu_DMEM),
+    .store_fault_mmu_DMEM(store_fault_mmu_DMEM),
+    .instr_fault_mmu_IMEM(instr_fault_mmu_IMEM),
+    .load_fault_mmu_IMEM(load_fault_mmu_IMEM),
+    .store_fault_mmu_IMEM(store_fault_mmu_IMEM),
+    .faulting_inst_i(faulting_inst_ID),
+    .faulting_va_IMEM_i(faulting_va_IMEM_ID),
+
+    .faulting_inst_o(faulting_inst),
+    .faulting_va_IMEM_o(faulting_va_IMEM),
+    .trapID(trapID)
   );
   
   ALU ALU (

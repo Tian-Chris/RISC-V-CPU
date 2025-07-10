@@ -21,10 +21,13 @@
 
 
 module hazard_unit (
+    input  wire       clk,
+    input  wire       rst,
     input  wire [4:0] IFrs1,
     input  wire [4:0] IFrs2,
     input  wire [4:0] IDrd,
     input  wire IDmemRead,
+    input  wire csr_branch_signal,
 
     //flush
     input  wire PCSel,
@@ -34,11 +37,28 @@ module hazard_unit (
     input  wire stall_IMEM,
     input  wire stall_DMEM,
 
-    output reg [3:0] hazard_signal
+    output reg [3:0] hazard_signal,
+
+    //exception
+    input  wire        pc_misaligned,
+    input  wire [31:0] faulting_inst_i, 
+    input  wire        invalid_inst,
+    input  wire        instr_fault_mmu_DMEM, load_fault_mmu_DMEM, store_fault_mmu_DMEM,
+    input  wire        instr_fault_mmu_IMEM, load_fault_mmu_IMEM, store_fault_mmu_IMEM,
+    input  wire [31:0] faulting_va_IMEM_i,
+    output wire [31:0] faulting_inst_o,
+    output wire [31:0] faulting_va_IMEM_o,
+    output wire [4:0]  trapID
 );
     `include "inst_defs.v"
+    `include "csr_defs.v"
+    `ifdef DEBUG_ALL
+        `define DEBUG_HAZARD
+        `define DEBUG_EXCEPT
+    `endif
+    //Stall
     always @(*) begin
-        if(PCSel)
+        if(PCSel || csr_branch_signal || trapID != `EXCEPT_DO_NOTHING)
             hazard_signal = `FLUSH_ALL;
         else if(jump_taken)
             hazard_signal = `FLUSH_EARLY;
@@ -53,4 +73,85 @@ module hazard_unit (
             $display("hazard_signal: %b", hazard_signal);
         `endif
     end
+
+    //Exceptions 
+    reg PC_ID;
+    reg PC_EX;
+    reg PC_MEM;
+    reg invalid_inst_EX;
+    reg invalid_inst_MEM;
+    reg instr_fault_mmu_IMEM_EX;
+    reg load_fault_mmu_IMEM_EX;
+    reg store_fault_mmu_IMEM_EX;
+    reg instr_fault_mmu_IMEM_MEM;
+    reg load_fault_mmu_IMEM_MEM;
+    reg store_fault_mmu_IMEM_MEM;
+    reg [31:0] faulting_inst_EX;
+    reg [31:0] faulting_inst_MEM;
+    reg [31:0] faulting_va_IMEM_EX;
+    reg [31:0] faulting_va_IMEM_MEM;
+
+
+    always @(posedge clk) begin
+        `ifdef DEBUG_EXCEPT
+            $display("=========== EXCEPT ===========");
+            $display("trapID: %h", trapID);
+            $display("MMU Faults: instr_fault_mmu = %h | load_fault_mmu = %h | store_fault_mmu = %h", instr_fault_mmu, load_fault_mmu, store_fault_mmu);
+            $display("PCs:        PC_ID = %h | PC_EX = %h | PC_MEM = %h", PC_ID, PC_EX, PC_MEM);
+            $display("Invalid:    invalid_inst_EX = %b | invalid_inst_MEM = %b", invalid_inst_EX, invalid_inst_MEM);
+            $display("Fault Inst: faulting_inst_EX = %b | faulting_inst_MEM = %b", faulting_inst_EX, faulting_inst_MEM);
+            $display("Instr:      instr_fault_mmu_IMEM_EX = %b | instr_fault_mmu_IMEM_MEM = %b", instr_fault_mmu_IMEM_EX, instr_fault_mmu_IMEM_MEM);
+            $display("Load:       load_fault_mmu_IMEM_EX  = %b | load_fault_mmu_IMEM_MEM  = %b", load_fault_mmu_IMEM_EX, load_fault_mmu_IMEM_MEM);
+            $display("Store:      store_fault_mmu_IMEM_EX = %b | store_fault_mmu_IMEM_MEM = %b", store_fault_mmu_IMEM_EX, store_fault_mmu_IMEM_MEM);
+            $display("VA:         faulting_va_IMEM_EX = %h | faulting_va_IMEM_MEM = %h", faulting_va_IMEM_EX, faulting_va_IMEM_MEM);
+        `endif
+
+        if(rst || hazard_signal == `FLUSH_ALL) begin
+            PC_ID                     <= 0;
+            PC_EX                     <= 0;
+            PC_MEM                    <= 0;
+            invalid_inst_EX           <= 0;
+            invalid_inst_MEM          <= 0;
+            faulting_inst_EX          <= 0;
+            faulting_inst_MEM         <= 0;
+            instr_fault_mmu_IMEM_EX   <= 0;
+            instr_fault_mmu_IMEM_MEM  <= 0;
+            load_fault_mmu_IMEM_EX    <= 0;
+            load_fault_mmu_IMEM_MEM   <= 0;
+            store_fault_mmu_IMEM_EX   <= 0;
+            store_fault_mmu_IMEM_MEM  <= 0;
+            faulting_va_IMEM_EX       <= 0;
+            faulting_va_IMEM_MEM      <= 0;
+        end
+        else if(hazard_signal == `STALL_MMU) begin end
+        else begin
+            PC_ID                    <= pc_misaligned;
+            PC_EX                    <= PC_ID;
+            PC_MEM                   <= PC_EX;
+            invalid_inst_EX          <= invalid_inst;
+            invalid_inst_MEM         <= invalid_inst_EX;
+            faulting_inst_EX         <= faulting_inst_i;
+            faulting_inst_MEM        <= faulting_inst_EX;
+            instr_fault_mmu_IMEM_EX  <= instr_fault_mmu_IMEM;
+            instr_fault_mmu_IMEM_MEM <= instr_fault_mmu_IMEM_EX;
+            load_fault_mmu_IMEM_EX   <= load_fault_mmu_IMEM;
+            load_fault_mmu_IMEM_MEM  <= load_fault_mmu_IMEM_EX;
+            store_fault_mmu_IMEM_EX  <= store_fault_mmu_IMEM;
+            store_fault_mmu_IMEM_MEM <= store_fault_mmu_IMEM_EX;
+            faulting_va_IMEM_EX      <= faulting_va_IMEM_i;
+            faulting_va_IMEM_MEM     <= faulting_va_IMEM_EX;
+        end
+    end
+
+    wire instr_fault_mmu = instr_fault_mmu_DMEM | instr_fault_mmu_IMEM_MEM;
+    wire load_fault_mmu  = load_fault_mmu_DMEM  | load_fault_mmu_IMEM_MEM;
+    wire store_fault_mmu = store_fault_mmu_DMEM | store_fault_mmu_IMEM_MEM;
+
+    assign faulting_va_IMEM_o  = faulting_va_IMEM_MEM; 
+    assign faulting_inst_o     = faulting_inst_MEM;
+    assign trapID = PC_MEM          ? `EXCEPT_MISALIGNED_PC    :
+                invalid_inst_MEM    ? `EXCEPT_ILLEGAL_INST     : 
+                instr_fault_mmu     ? `EXCEPT_INST_PAGE_FAULT  : 
+                load_fault_mmu      ? `EXCEPT_LOAD_PAGE_FAULT  :
+                store_fault_mmu     ? `EXCEPT_STORE_PAGE_FAULT : `EXCEPT_DO_NOTHING;
 endmodule
