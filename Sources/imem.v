@@ -63,18 +63,19 @@ module imem #(parameter MEMSIZE = 70000) (
     `ifdef DEBUG_ALL
         `define DEBUG_IMEM
     `endif
+
     reg [7:0] unified_mem [0:MEMSIZE];
-    wire virtual_mode_I = (csr_satp[31] && priv_IMEM != `PRIV_MACHINE);
-    wire virtual_mode_D = (csr_satp[31] && priv_DMEM != `PRIV_MACHINE);
 
     //MMU
+    wire        virtual_mode_I = (csr_satp[31] && priv_IMEM != `PRIV_MACHINE);
     reg         LFM_resolved_IMEM;
-    reg [7:0]   b1_IMEM, b2_IMEM, b3_IMEM, b4_IMEM;
+    reg  [7:0]  b1_IMEM, b2_IMEM, b3_IMEM, b4_IMEM;
     wire [31:0] LFM_IMEM;
     wire        LFM_enable_IMEM;
 
+    wire virtual_mode_D = (csr_satp[31] && priv_DMEM != `PRIV_MACHINE);
     reg         LFM_resolved_DMEM;
-    reg [7:0]   b1_DMEM, b2_DMEM, b3_DMEM, b4_DMEM;
+    reg  [7:0]  b1_DMEM, b2_DMEM, b3_DMEM, b4_DMEM;
     wire [31:0] LFM_DMEM;
     wire        LFM_enable_DMEM;
     

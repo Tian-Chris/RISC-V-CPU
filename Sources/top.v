@@ -88,7 +88,8 @@ module cpu_top (
     wire  [31:0] IDinstCSR;
     wire         access_is_load_ID;
     wire         access_is_store_ID;
-
+    reg  [1:0]  priv_ID;
+    
     //exception
     wire  [4:0]  trapID;
     wire         pc_misaligned       = (pc[1:0] != 2'b00);
@@ -180,12 +181,14 @@ module cpu_top (
     
     always @(posedge clk) begin
         if(rst) begin
+            priv_ID      <= `PRIV_MACHINE;
             priv_EX      <= `PRIV_MACHINE;
             priv_MEM     <= `PRIV_MACHINE;
         end
         else if(hazard_signal != `STALL_MMU) begin
-            priv_EX      <= priv;
-            priv_MEM     <= priv;
+            priv_ID      <= priv;
+            priv_EX      <= priv_ID;
+            priv_MEM     <= priv_EX;
         end
     end
 
@@ -293,7 +296,7 @@ module cpu_top (
     .meip(meip),
 
     //IMEM
-    .priv_IMEM(priv_EX),
+    .priv_IMEM(priv_ID),
     .VPC_IMEM(pc), 
     .access_is_load_IMEM(access_is_load_IMEM),
     .access_is_store_IMEM(access_is_store_IMEM),

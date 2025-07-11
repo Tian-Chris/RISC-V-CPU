@@ -82,34 +82,34 @@ module datapath(
     wire [4:0]  ID_rs2_raw;
     
     //EX Stage Signals
-    reg        EX_is_jump;
-    reg        EX_is_branch;
-    reg [2:0]  EX_funct3;
-    reg        EX_Reg_WEn; 
-    reg        EX_dmemRW;    
-    reg [1:0]  EX_Reg_WBSel;  
-    reg        EX_branch_signed;
-    reg        EX_ALU_BSel;  
-    reg        EX_ALU_ASel;     
-    reg [3:0]  EX_ALU_Sel;   
-    reg [1:0]  EX_uses_reg;
-    reg [4:0]  EX_rs1_raw;
-    reg [4:0]  EX_rs2_raw;
+    wire        EX_is_jump;
+    wire        EX_is_branch;
+    wire [2:0]  EX_funct3;
+    wire        EX_Reg_WEn; 
+    wire        EX_dmemRW;    
+    wire [1:0]  EX_Reg_WBSel;  
+    wire        EX_branch_signed;
+    wire        EX_ALU_BSel;  
+    wire        EX_ALU_ASel;     
+    wire [3:0]  EX_ALU_Sel;   
+    wire [1:0]  EX_uses_reg;
+    wire [4:0]  EX_rs1_raw;
+    wire [4:0]  EX_rs2_raw;
 
     //MEM Stage Signals
-    reg        MEM_is_jump;
-    reg        MEM_is_branch;
-    reg [2:0]  MEM_funct3;
-    reg        MEM_Reg_WEn; 
-    reg        MEM_branch_signed;
-    reg        MEM_dmemRW;    
-    reg [1:0]  MEM_Reg_WBSel;  
-    reg        MEM_BrEq; //br inputs 1 stage delayed
-    reg        MEM_BrLT;
+    wire        MEM_is_jump;
+    wire        MEM_is_branch;
+    wire [2:0]  MEM_funct3;
+    wire        MEM_Reg_WEn; 
+    wire        MEM_branch_signed;
+    wire        MEM_dmemRW;    
+    wire [1:0]  MEM_Reg_WBSel;  
+    wire        MEM_BrEq; //br inputs 1 stage delayed
+    wire        MEM_BrLT;
 
     //WB Stage Signals
-    reg        WB_Reg_WEn; 
-    reg [1:0]  WB_Reg_WBSel; 
+    wire        WB_Reg_WEn; 
+    wire [1:0]  WB_Reg_WBSel; 
 
     datapath_decoder DEC (
         .instruct(instruct),
@@ -130,69 +130,42 @@ module datapath(
         .dmemRW(ID_dmemRW)
     );
 
+    // ============
+    //   ID - EX
+    // ============
+    localparam EX_WIDTH = 1 + 1 + 3 + 1 + 1 + 2 + 1 + 1 + 1 + 4 + 2 + 5 + 5;
+    wire [EX_WIDTH-1:0]  EX = {ID_is_jump, ID_is_branch, ID_funct3, ID_Reg_WEn, ID_branch_signed, ID_ALU_BSel, ID_ALU_ASel, 
+                               ID_ALU_Sel, ID_dmemRW, ID_Reg_WBSel, ID_uses_reg, ID_rs1_raw, ID_rs2_raw};
+    wire [EX_WIDTH-1:0]  EX_OUT;
+    Pipe #(.STAGE(`STAGE_EX), .WIDTH(EX_WIDTH)) PIPE_EX (
+        .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(EX), .out_data(EX_OUT)
+        );
+    assign {EX_is_jump, EX_is_branch, EX_funct3, EX_Reg_WEn, EX_branch_signed, EX_ALU_BSel, EX_ALU_ASel, 
+            EX_ALU_Sel, EX_dmemRW, EX_Reg_WBSel, EX_uses_reg, EX_rs1_raw, EX_rs2_raw} = EX_OUT; 
+    
+    // ============
+    //   EX - MEM
+    // ============
+    localparam MEM_WIDTH = 1 + 1 + 3 + 1 + 1 + 1 + 2 + 1 + 1;
+    wire [MEM_WIDTH-1:0]  MEM = {EX_is_jump, EX_is_branch, EX_funct3, EX_Reg_WEn, EX_branch_signed, EX_dmemRW, EX_Reg_WBSel, brEq, brLt};
+    wire [MEM_WIDTH-1:0]  MEM_OUT;
+    Pipe #(.STAGE(`STAGE_MEM), .WIDTH(MEM_WIDTH)) PIPE_MEM (
+        .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(MEM), .out_data(MEM_OUT)
+        );
+    assign {MEM_is_jump, MEM_is_branch, MEM_funct3, MEM_Reg_WEn, MEM_branch_signed, MEM_dmemRW, MEM_Reg_WBSel, MEM_brEq, MEM_brLt} = MEM_OUT; 
+    
+    // ============
+    //   MEM - WB
+    // ============
+    localparam WB_WIDTH = 1 + 2;
+    wire [WB_WIDTH-1:0]  WB = {MEM_Reg_WEn, MEM_Reg_WBSel};
+    wire [WB_WIDTH-1:0]  WB_OUT;
+    Pipe #(.STAGE(`STAGE_MEM), .WIDTH(WB_WIDTH)) PIPE_WB (
+        .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(WB), .out_data(WB_OUT)
+        );
+    assign {WB_Reg_WEn, WB_Reg_WBSel} = WB_OUT; 
+    
     always @(posedge clk) begin
-        if(rst || hazard_signal == `FLUSH_ALL) begin
-            EX_is_jump        <= 0;
-            EX_is_branch      <= 0;
-            EX_funct3         <= 0;
-            EX_Reg_WEn        <= 0; 
-            EX_branch_signed  <= 0;
-            EX_ALU_BSel       <= 0; 
-            EX_ALU_ASel       <= 0; 
-            EX_ALU_Sel        <= 0;    
-            EX_dmemRW         <= 0;  
-            EX_Reg_WBSel      <= 0; 
-            EX_uses_reg       <= 0;
-            EX_rs1_raw        <= 0;
-            EX_rs2_raw        <= 0;
-
-            MEM_is_jump       <= 0;
-            MEM_is_branch     <= 0;
-            MEM_funct3        <= 0;
-            MEM_Reg_WEn       <= 0; 
-            MEM_branch_signed <= 0;
-            MEM_dmemRW        <= 0;
-            MEM_Reg_WBSel     <= 0;
-            MEM_BrEq          <= 0;
-            MEM_BrLT          <= 0;
-
-            if(rst) begin
-                WB_Reg_WEn        <= 0;
-                WB_Reg_WBSel      <= 0;
-            end
-            else begin
-                WB_Reg_WEn        <= MEM_Reg_WEn;
-                WB_Reg_WBSel      <= MEM_Reg_WBSel;
-            end
-        end
-        else begin
-            EX_is_jump        <= ID_is_jump;
-            EX_is_branch      <= ID_is_branch;
-            EX_funct3         <= ID_funct3;
-            EX_Reg_WEn        <= ID_Reg_WEn; 
-            EX_branch_signed  <= ID_branch_signed;
-            EX_ALU_BSel       <= ID_ALU_BSel; 
-            EX_ALU_ASel       <= ID_ALU_ASel; 
-            EX_ALU_Sel        <= ID_ALU_Sel;    
-            EX_dmemRW         <= ID_dmemRW;  
-            EX_Reg_WBSel      <= ID_Reg_WBSel; 
-            EX_uses_reg       <= ID_uses_reg;
-            EX_rs1_raw        <= ID_rs1_raw;
-            EX_rs2_raw        <= ID_rs2_raw;
-
-            MEM_is_jump       <= EX_is_jump;
-            MEM_is_branch     <= EX_is_branch;
-            MEM_funct3        <= EX_funct3;
-            MEM_Reg_WEn       <= EX_Reg_WEn; 
-            MEM_branch_signed <= EX_branch_signed;
-            MEM_dmemRW        <= EX_dmemRW;
-            MEM_Reg_WBSel     <= EX_Reg_WBSel;
-            MEM_BrEq          <= brEq;
-            MEM_BrLT          <= brLt;
-
-            WB_Reg_WEn        <= MEM_Reg_WEn;
-            WB_Reg_WBSel      <= MEM_Reg_WBSel;
-        end
         `ifdef DEBUG_DATAPATH
             $display("===========  DATAPATH  ===========");
             $display("instruct: %h", instruct);
