@@ -75,21 +75,39 @@ module hazard_unit (
     end
 
     //Exceptions 
-    reg PC_ID;
-    reg PC_EX;
-    reg PC_MEM;
-    reg invalid_inst_EX;
-    reg invalid_inst_MEM;
-    reg instr_fault_mmu_IMEM_EX;
-    reg load_fault_mmu_IMEM_EX;
-    reg store_fault_mmu_IMEM_EX;
-    reg instr_fault_mmu_IMEM_MEM;
-    reg load_fault_mmu_IMEM_MEM;
-    reg store_fault_mmu_IMEM_MEM;
-    reg [31:0] faulting_inst_EX;
-    reg [31:0] faulting_inst_MEM;
-    reg [31:0] faulting_va_IMEM_EX;
-    reg [31:0] faulting_va_IMEM_MEM;
+    wire PC_ID;
+    wire PC_EX;
+    wire PC_MEM;
+    wire invalid_inst_EX;
+    wire invalid_inst_MEM;
+    wire instr_fault_mmu_IMEM_EX;
+    wire load_fault_mmu_IMEM_EX;
+    wire store_fault_mmu_IMEM_EX;
+    wire instr_fault_mmu_IMEM_MEM;
+    wire load_fault_mmu_IMEM_MEM;
+    wire store_fault_mmu_IMEM_MEM;
+    wire [31:0] faulting_inst_EX;
+    wire [31:0] faulting_inst_MEM;
+    wire [31:0] faulting_va_IMEM_EX;
+    wire [31:0] faulting_va_IMEM_MEM;
+
+    localparam EXBUNDLE_WIDTH = 1 + 1 + 1 + 1 + 1 + 32 + 32; 
+    localparam MEMBUNDLE_WIDTH = 1 + 1 + 1 + 1 + 1 + 32 + 32; 
+    wire [EXBUNDLE_WIDTH-1:0] EXBUNDLE = {PC_ID, invalid_inst, instr_fault_mmu_IMEM, load_fault_mmu_IMEM, store_fault_mmu_IMEM, faulting_inst_i, faulting_va_IMEM_i};
+    wire [EXBUNDLE_WIDTH-1:0] EXBUNDLE_OUT;
+    wire [MEMBUNDLE_WIDTH-1:0] MEMBUNDLE = {PC_EX, invalid_inst_EX, instr_fault_mmu_IMEM_EX, load_fault_mmu_IMEM_EX, store_fault_mmu_IMEM_EX, faulting_inst_EX, faulting_va_IMEM_EX};
+    wire [MEMBUNDLE_WIDTH-1:0] MEMBUNDLE_OUT;
+    Pipe #(.STAGE(`STAGE_ID), .WIDTH(1)) PIPE_ID (
+        .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(pc_misaligned), .out_data(PC_ID)
+        );
+    Pipe #(.STAGE(`STAGE_EX), .WIDTH(EXBUNDLE_WIDTH)) PIPE_EX (
+        .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(EXBUNDLE), .out_data(EXBUNDLE_OUT)
+        );
+    Pipe #(.STAGE(`STAGE_EX), .WIDTH(MEMBUNDLE_WIDTH)) PIPE_MEM (
+        .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(MEMBUNDLE), .out_data(MEMBUNDLE_OUT)
+        );
+    assign {PC_EX, invalid_inst_EX, instr_fault_mmu_IMEM_EX, load_fault_mmu_IMEM_EX, store_fault_mmu_IMEM_EX, faulting_inst_EX, faulting_va_IMEM_EX} = EXBUNDLE_OUT; 
+    assign {PC_MEM, invalid_inst_MEM, instr_fault_mmu_IMEM_MEM, load_fault_mmu_IMEM_MEM, store_fault_mmu_IMEM_MEM, faulting_inst_MEM, faulting_va_IMEM_MEM} = MEMBUNDLE_OUT; 
 
 
     always @(posedge clk) begin
@@ -105,42 +123,6 @@ module hazard_unit (
             $display("Store:      store_fault_mmu_IMEM_EX = %b | store_fault_mmu_IMEM_MEM = %b", store_fault_mmu_IMEM_EX, store_fault_mmu_IMEM_MEM);
             $display("VA:         faulting_va_IMEM_EX = %h | faulting_va_IMEM_MEM = %h", faulting_va_IMEM_EX, faulting_va_IMEM_MEM);
         `endif
-
-        if(rst || hazard_signal == `FLUSH_ALL) begin
-            PC_ID                     <= 0;
-            PC_EX                     <= 0;
-            PC_MEM                    <= 0;
-            invalid_inst_EX           <= 0;
-            invalid_inst_MEM          <= 0;
-            faulting_inst_EX          <= 0;
-            faulting_inst_MEM         <= 0;
-            instr_fault_mmu_IMEM_EX   <= 0;
-            instr_fault_mmu_IMEM_MEM  <= 0;
-            load_fault_mmu_IMEM_EX    <= 0;
-            load_fault_mmu_IMEM_MEM   <= 0;
-            store_fault_mmu_IMEM_EX   <= 0;
-            store_fault_mmu_IMEM_MEM  <= 0;
-            faulting_va_IMEM_EX       <= 0;
-            faulting_va_IMEM_MEM      <= 0;
-        end
-        else if(hazard_signal == `STALL_MMU) begin end
-        else begin
-            PC_ID                    <= pc_misaligned;
-            PC_EX                    <= PC_ID;
-            PC_MEM                   <= PC_EX;
-            invalid_inst_EX          <= invalid_inst;
-            invalid_inst_MEM         <= invalid_inst_EX;
-            faulting_inst_EX         <= faulting_inst_i;
-            faulting_inst_MEM        <= faulting_inst_EX;
-            instr_fault_mmu_IMEM_EX  <= instr_fault_mmu_IMEM;
-            instr_fault_mmu_IMEM_MEM <= instr_fault_mmu_IMEM_EX;
-            load_fault_mmu_IMEM_EX   <= load_fault_mmu_IMEM;
-            load_fault_mmu_IMEM_MEM  <= load_fault_mmu_IMEM_EX;
-            store_fault_mmu_IMEM_EX  <= store_fault_mmu_IMEM;
-            store_fault_mmu_IMEM_MEM <= store_fault_mmu_IMEM_EX;
-            faulting_va_IMEM_EX      <= faulting_va_IMEM_i;
-            faulting_va_IMEM_MEM     <= faulting_va_IMEM_EX;
-        end
     end
 
     wire instr_fault_mmu = instr_fault_mmu_DMEM | instr_fault_mmu_IMEM_MEM;

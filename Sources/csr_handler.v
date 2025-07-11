@@ -112,9 +112,6 @@ reg  [31:0] csr_rdata_EX;
 reg  [11:0] csr_addr_MEM;
 reg  [31:0] csr_rdata_MEM;
 
-wire [1:0] priv;
-reg  [1:0] priv_stalled;
-
 csr_file csr (
     .clk(clk),
     .rst(rst),
@@ -153,11 +150,10 @@ csr_file csr (
 
     //mmu
     .satp_o(csr_satp),
-    .priv_o(priv),
+    .priv_o(priv_o),
     .sstatus_sum(sstatus_sum)
 );
 
-assign priv_o = priv_stalled;
 //read
 reg [31:0] csr_rdata_clocked;
 reg [31:0] output_data;
@@ -180,7 +176,6 @@ always @(posedge clk) begin
         $display("csr_data_to_wb: %h, csr_addr_to_wb: %h", csr_data_to_wb, csr_addr_to_wb);
         $display("csr_wben: %h, csr_wbaddr: %h, csr_wbdata: %h", csr_wben, csr_wbaddr, csr_wbdata);
     `endif 
-    priv_stalled <= priv;
     
     if(rst) begin
         csr_rdata_clocked <= 32'b0;

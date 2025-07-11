@@ -22,10 +22,10 @@ module imem #(parameter MEMSIZE = 70000) (
 
     //MMU
     input  wire        sstatus_sum, //bit 18
-    input  wire [31:0] csr_satp,    
-    input  wire [1:0]  priv,    
+    input  wire [31:0] csr_satp,       
 
     //IMEM    
+    input  wire [1:0]  priv_IMEM, 
     input  wire [31:0] VPC_IMEM,         
     input  wire        access_is_load_IMEM,
     input  wire        access_is_store_IMEM,
@@ -39,6 +39,7 @@ module imem #(parameter MEMSIZE = 70000) (
 
 
     //DMEM
+    input  wire [1:0]  priv_DMEM,
     input  wire [31:0] VPC_DMEM, 
     input  wire        access_is_load_DMEM,
     input  wire        access_is_store_DMEM,
@@ -63,8 +64,9 @@ module imem #(parameter MEMSIZE = 70000) (
         `define DEBUG_IMEM
     `endif
     reg [7:0] unified_mem [0:MEMSIZE];
-    wire virtual_mode = (csr_satp[31] && priv != `PRIV_MACHINE);
-    
+    wire virtual_mode_I = (csr_satp[31] && priv_IMEM != `PRIV_MACHINE);
+    wire virtual_mode_D = (csr_satp[31] && priv_DMEM != `PRIV_MACHINE);
+
     //MMU
     reg         LFM_resolved_IMEM;
     reg [7:0]   b1_IMEM, b2_IMEM, b3_IMEM, b4_IMEM;
@@ -76,8 +78,8 @@ module imem #(parameter MEMSIZE = 70000) (
     wire [31:0] LFM_DMEM;
     wire        LFM_enable_DMEM;
     
-    wire [31:0] IMEM_Addr = virtual_mode ? PPC_IMEM : VPC_IMEM;
-    wire [31:0] DMEM_Addr = virtual_mode ? PPC_DMEM : VPC_DMEM;
+    wire [31:0] IMEM_Addr = virtual_mode_I ? PPC_IMEM : VPC_IMEM;
+    wire [31:0] DMEM_Addr = virtual_mode_D ? PPC_DMEM : VPC_DMEM;
     
     // ========
     //   IMEM
@@ -266,7 +268,7 @@ end
     reg  [3:0] STATE;
     always @(posedge clk ) begin
     `ifdef DEBUG_IMEM
-        $display("IMEM => State: %h, virtual_mode: %h, LFM_enable_IMEM: %h, LFM_enable_DMEM: %h", STATE, virtual_mode, LFM_enable_IMEM, LFM_enable_DMEM);
+        $display("IMEM => State: %h, virtual_mode_I: %h, virtual_mode_D: %h, LFM_enable_IMEM: %h, LFM_enable_DMEM: %h", STATE, virtual_mode_I, virtual_mode_D, LFM_enable_IMEM, LFM_enable_DMEM);
     `endif
         case(STATE)
             IDLE: begin
@@ -323,7 +325,7 @@ end
         .rst(rst),
         .VPC(VPC_IMEM),
         .csr_satp(csr_satp),    
-        .priv(priv),    
+        .priv(priv_IMEM),    
         .LFM_resolved(LFM_resolved_IMEM),
         .b1(b1_IMEM),
         .b2(b2_IMEM),
@@ -349,7 +351,7 @@ end
         .rst(rst),
         .VPC(VPC_DMEM),
         .csr_satp(csr_satp),    
-        .priv(priv),    
+        .priv(priv_DMEM),    
         .LFM_resolved(LFM_resolved_DMEM),
         .b1(b1_DMEM),
         .b2(b2_DMEM),

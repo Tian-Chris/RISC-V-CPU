@@ -57,7 +57,6 @@ module cpu_top (
     wire [4:0]  IFrs2 = rs2;
     
     //mmu
-    wire  [1:0]  priv;
     wire  [31:0] csr_satp;
     wire        sstatus_sum;
     wire        instr_fault_mmu_IMEM;
@@ -79,6 +78,7 @@ module cpu_top (
     wire [3:0] hazard_signal;
     
     //ID Stage Reg
+    wire  [1:0]  priv;
     wire  [31:0] IDinstruct;
     wire  [31:0] IDPC;
     wire  [4:0]  IDrs1;
@@ -116,54 +116,56 @@ module cpu_top (
     wire [31:0] PC_saved;
 
     //EX Stage Reg
-    reg  [31:0] EXinstruct;
-    reg  [31:0] EXPC;
-    reg  [31:0] EXrdata1;
-    reg  [31:0] EXrdata2;
-    reg  [31:0] EXimm;
-    reg  [4:0]  EXrd;
+    wire [31:0] EXinstruct;
+    wire [31:0] EXPC;
+    wire [31:0] EXrdata1;
+    wire [31:0] EXrdata2;
+    wire [31:0] EXimm;
+    wire [4:0]  EXrd;
     reg  [31:0] DMEMPreClockData;
     reg  [31:0] wdata;
-    reg         EXjump_taken;
-    reg  [2:0]  pht_indexEX;
-    reg  [31:0] PC_savedEX;
-    reg  [31:0] EXinstCSR;
+    wire        EXjump_taken;
+    wire [2:0]  pht_indexEX;
+    wire [31:0] PC_savedEX;
+    wire [31:0] EXinstCSR;
     wire        EX_csr_reg_en;
     wire        EX_csr_branch_signal;
     wire [31:0] EX_csr_branch_address;
-    reg         access_is_load_EX;
-    reg         access_is_store_EX;
-    
+    wire        access_is_load_EX;
+    wire        access_is_store_EX;
+    reg  [1:0]  priv_EX;
+
     //MEM Stage Reg
-    reg  [31:0] MEMinstruct;
-    reg  [31:0] MEMAlu;
-    reg  [31:0] MEMrdata2;
-    reg  [31:0] MEMPC;
-    reg  [4:0]  MEMrd;        
-    reg         MEMjump_taken;
-    reg  [2:0]  pht_indexMEM;
-    reg  [31:0] PC_savedMEM;
+    wire [31:0] MEMinstruct;
+    wire [31:0] MEMAlu;
+    wire [31:0] MEMrdata2;
+    wire [31:0] MEMPC;
+    wire [4:0]  MEMrd;        
+    wire        MEMjump_taken;
+    wire [2:0]  pht_indexMEM;
+    wire [31:0] PC_savedMEM;
     wire [31:0] MEM_csr_rresult; //result of read
-    reg         MEM_csr_reg_en;
+    wire        MEM_csr_reg_en;
     wire [31:0] MEM_csr_data_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
     wire [31:0] MEM_csr_addr_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
-    reg         access_is_load_MEM;
-    reg         access_is_store_MEM;
+    wire        access_is_load_MEM;
+    wire        access_is_store_MEM;
     wire [31:0] dmem_out;
-    
+    reg  [1:0]  priv_MEM;
+
     //WB Stage Reg
-    reg  [31:0] WBinstruct;
-    reg  [31:0] WBAlu;
-    reg  [31:0] WBPC;
-    reg  [31:0] WBdmem;
-    reg  [4:0]  WBrd;
-    reg         WB_csr_reg_en;
+    wire [31:0] WBinstruct;
+    wire [31:0] WBAlu;
+    wire [31:0] WBPC;
+    wire [31:0] WBdmem;
+    wire [4:0]  WBrd;
+    wire        WB_csr_reg_en;
     wire        WB_csr_wben;
     wire [11:0] WB_csr_wbaddr;   //address written
     wire [31:0] WB_csr_wbdata;   //data written
-    reg  [31:0] WB_csr_rresult; //result of read
-    reg  [31:0] WB_csr_data_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
-    reg  [31:0] WB_csr_addr_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
+    wire [31:0] WB_csr_rresult; //result of read
+    wire [31:0] WB_csr_data_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
+    wire [31:0] WB_csr_addr_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
     
     //debug
     `ifdef DEBUG
@@ -175,38 +177,36 @@ module cpu_top (
       assign rdata2o      = rdata2;
       assign privo        = priv;
     `endif 
-
-    // ID-EX
+    
     always @(posedge clk) begin
         if(rst) begin
-            EXinstruct   <= `INST_NOP;
-            EXPC         <= 32'h00000000;
-            EXrdata1     <= 32'h00000000;
-            EXrdata2     <= 32'h00000000;
-            EXimm        <= 32'h00000000;
-            EXrd         <= 5'b0;
-            EXjump_taken <= 0;
-            pht_indexEX  <= 0;
-            PC_savedEX   <= 32'h00000000;
-            EXinstCSR    <= `INST_NOP;
-            access_is_load_EX <= 0;
-            access_is_store_EX <= 0;
+            priv_EX      <= `PRIV_MACHINE;
+            priv_MEM     <= `PRIV_MACHINE;
         end
-        else begin
-            EXinstruct   <= IDinstruct;
-            EXPC         <= IDPC;
-            EXrdata1     <= rdata1;
-            EXrdata2     <= rdata2;
-            EXimm        <= imm;
-            EXrd         <= IDrd;
-            EXjump_taken <= jump_taken;
-            pht_indexEX  <= pht_index;
-            PC_savedEX   <= PC_saved;
-            EXinstCSR    <= IDinstCSR;
-            access_is_load_EX <= access_is_load_ID;
-            access_is_store_EX <= access_is_store_ID;
+        else if(hazard_signal != `STALL_MMU) begin
+            priv_EX      <= priv;
+            priv_MEM     <= priv;
         end
     end
+
+    // ===========
+    //    ID-EX
+    // ===========
+    localparam EXINST_WIDTH = 32 + 32; 
+    wire [EXINST_WIDTH-1:0]  EXINST = {IDinstruct, IDinstCSR};
+    wire [EXINST_WIDTH-1:0]  EXINST_OUT;
+    Pipe #(.STAGE(`STAGE_EX), .WIDTH(EXINST_WIDTH), .RESET_VALUE(`INST_NOP)) PIPE_INST_EX (
+        .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(EXINST), .out_data(EXINST_OUT)
+        );
+    assign {EXinstruct, EXinstCSR} = EXINST_OUT; 
+    
+    localparam EX_WIDTH = 32 + 32 + 32 + 32 + 5 + 1 + 3 + 32 + 1 + 1; 
+    wire [EX_WIDTH-1:0]  EX = {IDPC, rdata1, rdata2, imm, IDrd, jump_taken, pht_index, PC_saved, access_is_load_ID, access_is_store_ID};
+    wire [EX_WIDTH-1:0]  EX_OUT;
+    Pipe #(.STAGE(`STAGE_EX), .WIDTH(EX_WIDTH)) PIPE_EX (
+        .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(EX), .out_data(EX_OUT)
+        );
+    assign {EXPC, EXrdata1, EXrdata2, EXimm, EXrd, EXjump_taken, pht_indexEX, PC_savedEX, access_is_load_EX, access_is_store_EX} = EX_OUT; 
         
     //forwarding into dmem
     always @(*) begin
@@ -215,72 +215,40 @@ module cpu_top (
         DMEMPreClockData = forwardDmem[1] ? MEMAlu : (forwardDmem[0] ? wdata : EXrdata2);
     end
 
-    // EX-MEM
-    always @(posedge clk) begin
-        if(rst) begin
-            MEMinstruct    <= `INST_NOP;
-            MEMPC          <= 32'h00000000;
-            MEMrdata2      <= 32'h00000000;
-            MEMAlu         <= 32'h00000000;
-            MEMrd          <= 5'h00;
-            MEMjump_taken  <= 1'b0;
-            pht_indexMEM   <= 3'h0;
-            PC_savedMEM    <= 32'h00000000;
-            MEM_csr_reg_en <= 1'b0;
-            access_is_load_MEM <= 1'b0;
-            access_is_store_MEM <= 1'b0;
-        end
-        else begin
-            MEMinstruct    <= EXinstruct;
-            MEMPC          <= EXPC;
-            MEMrdata2      <= DMEMPreClockData;
-            MEMAlu         <= alu_out;
-            MEMrd          <= EXrd;
-            MEMjump_taken  <= EXjump_taken;
-            pht_indexMEM   <= pht_indexEX;
-            PC_savedMEM    <= PC_savedEX;
-            MEM_csr_reg_en <= EX_csr_reg_en;
-            access_is_load_MEM <= access_is_load_EX;
-            access_is_store_MEM <= access_is_store_EX;
-        end
-    end
-        
-    //MEM-WB
-    always @(posedge clk) begin
-        if(rst) begin
-            WBPC              <= 32'h00000000;
-            WBdmem            <= 32'h00000000;
-            WBAlu             <= 32'h00000000;
-            WBinstruct        <= `INST_NOP;
-            WBrd              <= 5'h0;
-            WB_csr_rresult    <= 32'h00000000; //result of read
-            WB_csr_reg_en     <= 1'h0;
-            WB_csr_data_to_wb <= 32'h00000000;  //csr_data_to_wb -> WB -> csr_wdata 
-            WB_csr_addr_to_wb <= 32'h00000000;  //csr_data_to_wb -> WB -> csr_wdata 
-        end
-        else begin
-            WBPC              <= MEMPC;
-            WBdmem            <= dmem_out;
-            WBAlu             <= MEMAlu;
-            WBinstruct        <= MEMinstruct;
-            WBrd              <= MEMrd;
-            WB_csr_rresult    <= MEM_csr_rresult; //result of read
-            WB_csr_reg_en     <= MEM_csr_reg_en;
-            WB_csr_data_to_wb <= MEM_csr_data_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
-            WB_csr_addr_to_wb <= MEM_csr_addr_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
-        end
-    end
+    // ===========
+    //    EX-MEM
+    // ===========
+    Pipe #(.STAGE(`STAGE_MEM), .WIDTH(32), .RESET_VALUE(`INST_NOP)) PIPE_MEM_INST (
+        .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(EXinstruct), .out_data(MEMinstruct)
+        );
     
-    //Flush
-    always @(posedge clk) begin
-        if (hazard_signal == `FLUSH_ALL) begin          
-            EXinstruct  <= `INST_NOP;
-            EXrd        <= 5'b0;           
-            MEMinstruct <= `INST_NOP;
-            MEMrd       <= 5'b0;             
-        end
-    end
+    localparam MEM_WIDTH = 32 + 32 + 32 + 5 + 1 + 3 + 32 + 1 + 1 + 1;
+    wire [MEM_WIDTH-1:0]  MEM = {EXPC, DMEMPreClockData, alu_out, EXrd, EXjump_taken, pht_indexEX, PC_savedEX, EX_csr_reg_en, access_is_load_EX, access_is_store_EX};
+    wire [MEM_WIDTH-1:0]  MEM_OUT;
+    Pipe #(.STAGE(`STAGE_MEM), .WIDTH(MEM_WIDTH)) PIPE_MEM (
+        .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(MEM), .out_data(MEM_OUT)
+        );
+    assign {MEMPC, MEMrdata2, MEMAlu, MEMrd, MEMjump_taken, pht_indexMEM, PC_savedMEM, MEM_csr_reg_en, access_is_load_MEM, access_is_store_MEM} = MEM_OUT; 
+        
+    // ===========
+    //    MEM-WB
+    // ===========
+    Pipe #(.STAGE(`STAGE_WB), .WIDTH(32), .RESET_VALUE(`INST_NOP)) PIPE_WB_INST (
+    .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(MEMinstruct), .out_data(WBinstruct)
+    );
 
+    localparam WB_WIDTH = 32 + 32 + 32 + 5 + 32 + 1 + 32 + 32;
+    wire [WB_WIDTH-1:0]  WB = {MEMPC, dmem_out, MEMAlu, MEMrd, MEM_csr_rresult, MEM_csr_reg_en, MEM_csr_data_to_wb, MEM_csr_addr_to_wb};
+    wire [WB_WIDTH-1:0]  WB_OUT;
+    Pipe #(.STAGE(`STAGE_WB), .WIDTH(WB_WIDTH)) PIPE_WB (
+        .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(WB), .out_data(WB_OUT)
+        );
+    assign {WBPC, WBdmem, WBAlu, WBrd, WB_csr_rresult, WB_csr_reg_en, WB_csr_data_to_wb, WB_csr_addr_to_wb} = WB_OUT; 
+
+
+  // ===========
+  //   Modules
+  // ===========
   // Program Counter
   PC PC (
     .clk(clk),
@@ -316,7 +284,6 @@ module cpu_top (
     .rdata(dmem_out),
 
     //MMU
-    .priv(priv),
     .csr_satp(csr_satp),
     .sstatus_sum(sstatus_sum), 
 
@@ -326,6 +293,7 @@ module cpu_top (
     .meip(meip),
 
     //IMEM
+    .priv_IMEM(priv_EX),
     .VPC_IMEM(pc), 
     .access_is_load_IMEM(access_is_load_IMEM),
     .access_is_store_IMEM(access_is_store_IMEM),
@@ -337,6 +305,7 @@ module cpu_top (
     .stall_IMEM(stall_IMEM),
 
     //DMEM
+    .priv_DMEM(priv_MEM),
     .VPC_DMEM(MEMAlu), 
     .access_is_load_DMEM(access_is_load_MEM),
     .access_is_store_DMEM(access_is_store_MEM),
@@ -508,7 +477,7 @@ module cpu_top (
     .IFrs2(IFrs2),
     .IDrd(IDrd),
     .IDmemRead(IDmemRead),
-    .csr_branch_signal(EX_csr_branch_signal)
+    .csr_branch_signal(EX_csr_branch_signal),
     .PCSel(PCSel),
     .jump_taken(jump_taken),
 
