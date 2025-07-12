@@ -131,9 +131,10 @@ module hazard_unit (
 
     assign faulting_va_IMEM_o  = faulting_va_IMEM_MEM; 
     assign faulting_inst_o     = faulting_inst_MEM;
-    assign trapID = PC_MEM          ? `EXCEPT_MISALIGNED_PC    :
-                invalid_inst_MEM    ? `EXCEPT_ILLEGAL_INST     : 
-                instr_fault_mmu     ? `EXCEPT_INST_PAGE_FAULT  : 
-                load_fault_mmu      ? `EXCEPT_LOAD_PAGE_FAULT  :
-                store_fault_mmu     ? `EXCEPT_STORE_PAGE_FAULT : `EXCEPT_DO_NOTHING;
+    assign trapID = PC_MEM               ? `EXCEPT_MISALIGNED_PC    :
+                instr_fault_mmu_IMEM_MEM ? `EXCEPT_INST_PAGE_FAULT  : 
+                invalid_inst_MEM         ? `EXCEPT_ILLEGAL_INST     : 
+                instr_fault_mmu          ? `EXCEPT_INST_PAGE_FAULT  : 
+                load_fault_mmu           ? `EXCEPT_LOAD_PAGE_FAULT  :
+                store_fault_mmu          ? `EXCEPT_STORE_PAGE_FAULT : `EXCEPT_DO_NOTHING;
 endmodule

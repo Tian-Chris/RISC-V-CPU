@@ -23,8 +23,12 @@
 module imm_gen( //swap to wire
     input wire [31:0] imm_in,
     input wire [2:0] imm_sel,
+    input wire clk,
     output reg [31:0] imm_out
     );
+    reg [31:0] prev_imm;
+    reg [2:0]  prev_sel;
+    
     always @(*) begin
         case (imm_sel)
             3'b000:  // I-type
@@ -49,5 +53,9 @@ module imm_gen( //swap to wire
                 imm_out = 32'hXXXXXXXX;
         endcase
 
+    end
+    always @(posedge clk) begin
+        
+        $display("imm_in: %h, imm_sel: %h , imm_out: %h", imm_in, imm_sel, imm_out);
     end
 endmodule

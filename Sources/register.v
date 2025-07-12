@@ -74,6 +74,8 @@ module register(
             `ifdef DEBUG_REGISTER
                 $display("===========  REGISTER  ===========");
                 $display("rd: %b,r1: %b,r2: %b, wdata: %h, WBSel: %b, write_enable: %b, write_enable_I: %b, WB_csr_reg_en: %b, WB_csr_rresult: %h, WB_csr_data_to_wb: %h, WB_csr_wbaddr: %h", rd, r1, r2, wdata, WBSel, write_enable, write_enable_I, WB_csr_reg_en, WB_csr_rresult, WB_csr_data_to_wb, WB_csr_wbaddr);
+                $display("rdata1: %h, rdata2: %h", rdata1, rdata2);
+
             `endif
             if (write_enable_I && rd != 0)
                 RegData[rd] <= wdata;

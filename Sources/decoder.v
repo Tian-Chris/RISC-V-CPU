@@ -33,12 +33,20 @@ reg [31:0] IDPC;
 reg [4:0]  IDrs1;
 reg [4:0]  IDrs2;
 reg [4:0]  IDrd;
-reg [31:0]  IDinstCSR;
+reg [31:0] IDinstCSR;
     
+reg        read;
 always @(posedge clk) begin
     `ifdef DEBUG_DECODER
-        $display("===========  DECODER  ===========");
-        $display("Invalid Instruction: %b, IDins: %h, IDPC: %h, IDrs1, %h, IDrd: %h, IDinstCSR: %h", invalid_inst, IDinstruct, IDPC, IDrs1, IDrd, IDinstCSR);
+        read <= 0;
+        if(hazard_signal != `STALL_MMU || read == 1) begin
+            $display("===========  DECODER  ===========");
+            $display("instruction: %h, pc: %h, rs1: %h, rs2: %h, rd: %h", instruction, pc, rs1, rs2, rd);
+            $display("Invalid Instruction: %b, IDins: %h, IDPC: %h, IDrs1: %h, IDrs2: %h, IDrd: %h, IDinstCSR: %h", invalid_inst, IDinstruct, IDPC, IDrs1, IDrs2, IDrd, IDinstCSR);
+            $display("hazard_signal: %b", hazard_signal);
+            if(read == 0)
+                read <= 1;
+        end
     `endif
     if(rst) begin
         IDinstruct <= `INST_NOP;
@@ -73,7 +81,7 @@ always @(posedge clk) begin
             IDinstCSR  <= 32'b0;
         end
     end 
-    else begin
+    else if (hazard_signal == `STALL_EARLY) begin
         IDinstruct <= `INST_NOP;
         IDrs1      <= 5'b0;              
         IDrs2      <= 5'b0;

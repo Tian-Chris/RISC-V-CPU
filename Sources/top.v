@@ -180,6 +180,26 @@ module cpu_top (
     `endif 
     
     always @(posedge clk) begin
+        $display("EX_IMM: %h, imm: %h", EXimm, imm);
+        $display(
+        "EXPC: %h, IDPC: %h | EXrdata1: %h, rdata1: %h | EXrdata2: %h, rdata2: %h | EXimm: %h, imm: %h | EXrd: %h, IDrd: %h |",
+        EXPC, IDPC,
+        EXrdata1, rdata1,
+        EXrdata2, rdata2,
+        EXimm, imm,
+        EXrd, IDrd
+    );
+    $display(
+        "EXjump_taken: %b, jump_taken: %b | pht_indexEX: %h, pht_index: %h | PC_savedEX: %h, PC_saved: %h |",
+        EXjump_taken, jump_taken,
+        pht_indexEX, pht_index,
+        PC_savedEX, PC_saved
+    );
+    $display(
+        "access_is_load_EX: %b, access_is_load_ID: %b | access_is_store_EX: %b, access_is_store_ID: %b",
+        access_is_load_EX, access_is_load_ID,
+        access_is_store_EX, access_is_store_ID
+    );
         if(rst) begin
             priv_ID      <= `PRIV_MACHINE;
             priv_EX      <= `PRIV_MACHINE;
@@ -345,6 +365,7 @@ module cpu_top (
   );
 
   imm_gen IMM (
+    .clk(clk),
     .imm_in(IDinstruct),
     .imm_sel(imm_gen_sel),
     .imm_out(imm)
