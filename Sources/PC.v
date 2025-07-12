@@ -39,7 +39,7 @@ module PC(
         `define DEBUG_PC
     `endif
     initial begin
-        PC <= 32'h00000000;
+        PC <= 32'h8000_0000;
     end
     always @(posedge clk)
         begin
@@ -53,7 +53,7 @@ module PC(
                 $display("PC ==> PC: %h | EXBS: %b | EXBA: %h | hazard_signal: %b | PCSEL: %b | jump_taken: %h | mispredict: %h | PC_savedMEM: %h", PC, EX_csr_branch_signal, EX_csr_branch_address, hazard_signal, PC_select, jump_taken, mispredict, PC_savedMEM);
             `endif
             if(rst)
-                PC <= 32'h00000000;
+                PC <= 32'h8000_0000;
             else begin
                 if(EX_csr_branch_signal)
                     PC <= EX_csr_branch_address;

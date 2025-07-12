@@ -162,7 +162,7 @@
 //   Peripherals
 // ===============
 `define UART_WRITE_ADDR          32'h10000000
-`define UART_READ_ADDR           32'h10000005
+`define UART_READ_ADDR           32'h10000004
 `define CLINT_MSIP_ADDR          32'h02000000
 `define CLINT_MTIMECMP_ADDR      32'h02004000
 `define CLINT_MTIMECMPH_ADDR     32'h02004004

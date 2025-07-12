@@ -5,8 +5,8 @@ module MMU_unit(
     input  wire [31:0] csr_satp,    
     input  wire [1:0]  priv,    
     input  wire        LFM_resolved,
-    input  wire [7:0]  b1, b2, b3, b4,
-    input  wire [3:0]  hazard_signal,
+    input  wire [31:0] LFM_word,
+    input  wire        MMU_hand_shake,
 
 
     //exception    
@@ -15,6 +15,7 @@ module MMU_unit(
     output wire        instr_fault_mmu, load_fault_mmu, store_fault_mmu,
     output wire [31:0] faulting_va,
     output reg         stall,
+    output reg         MMU_busy,
     output reg  [31:0] LFM,
     output reg         LFM_enable,
 
@@ -34,13 +35,13 @@ wire [31:0] l0_addr = {l1_pte[31:10], 12'b0} + (vpn0 << 2);
 reg         exception;
 
 //FSM
-wire [2:0] IDLE   = 3'b000;
-wire [2:0] LFM1   = 3'b001;
-wire [2:0] READL1 = 3'b010;
-wire [2:0] LFM0   = 3'b011;
-wire [2:0] READL0 = 3'b100;
-wire [2:0] DONE   = 3'b101;
-reg  [2:0] STATE;
+localparam [2:0] IDLE   = 3'b000;
+localparam [2:0] LFM1   = 3'b001;
+localparam [2:0] READL1 = 3'b010;
+localparam [2:0] LFM0   = 3'b011;
+localparam [2:0] READL0 = 3'b100;
+localparam [2:0] DONE   = 3'b101;
+reg        [2:0] STATE;
 
  
 
@@ -55,16 +56,19 @@ always @(posedge clk) begin
         STATE       <= IDLE;
         PC          <= 32'hDEAD_BEEF;
         LFM_enable  <= 0; 
+        MMU_busy    <= 0;
     end
     else begin
     case(STATE)
         IDLE: begin
             stall       <= 0;
             exception   <= 0;
+            MMU_busy    <= 0;
             if (csr_satp[31] && priv != `PRIV_MACHINE) begin
                 $display("[MMU] Start translation: VPC=0x%h, satp=0x%h, base_addr=0x%h", VPC, csr_satp, base_addr);
                 $display("[MMU] VPN1=0x%h, VPN0=0x%h", vpn1, vpn0);
                 stall       <= 1;
+                MMU_busy    <= 1;
                 LFM_enable  <= 1;
                 LFM         <= l1_addr; //load from memory
                 STATE       <= LFM1;
@@ -73,8 +77,8 @@ always @(posedge clk) begin
         LFM1: begin
             if(LFM_resolved) begin
                 LFM_enable  <= 0;
-                $display("[MMU] L1 PTE fetched: PA=0x%h, data=0x%h", l1_addr, {b4,b3,b2,b1});
-                l1_pte  <= {b4,b3,b2,b1};
+                $display("[MMU] L1 PTE fetched: PA=0x%h, data=0x%h", l1_addr, LFM_word);
+                l1_pte  <= LFM_word;
                 STATE   <= READL1;
             end
         end
@@ -124,17 +128,16 @@ always @(posedge clk) begin
                     PC          <= 32'hDEAD_BEEF;
                     STATE       <= DONE;
                 end else begin
-                    $display("[MMU] Translation success (L1 leaf): PA = 0x%h", {l1_pte[31:10], VPC[21:0]});
-                    PC          <= {l1_pte[31:10], VPC[21:0]};
+                    $display("[MMU] Translation success (L1 leaf): PA = 0x%h", {l1_pte[31:10], VPC[11:0]});
+                    PC          <= {l1_pte[31:10], VPC[11:0]};
                     STATE       <= DONE;
                 end 
             end
         end
         LFM0: begin
-            LFM_enable  <= 0;
             if(LFM_resolved) begin
-                $display("[MMU] L0 PTE fetched: PA=0x%h, data=0x%h", l0_addr, {b4,b3,b2,b1});
-                l0_pte  <= {b4,b3,b2,b1};
+                $display("[MMU] L0 PTE fetched: PA=0x%h, data=0x%h", l0_addr, LFM_word);
+                l0_pte  <= LFM_word;
                 STATE   <= READL0;
             end
         end
@@ -185,9 +188,11 @@ always @(posedge clk) begin
             end
         end
         DONE: begin
-            stall <= 0;
-            if(hazard_signal != `STALL_MMU)
+            MMU_busy <= 0;
+            if(MMU_hand_shake == 0) begin
                 STATE <= IDLE;
+                stall <= 0;
+            end
         end
         default: begin
             STATE <= IDLE;

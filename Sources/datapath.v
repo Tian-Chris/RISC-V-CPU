@@ -104,8 +104,8 @@ module datapath(
     wire        MEM_branch_signed;
     wire        MEM_dmemRW;    
     wire [1:0]  MEM_Reg_WBSel;  
-    wire        MEM_BrEq; //br inputs 1 stage delayed
-    wire        MEM_BrLT;
+    wire        MEM_brEq; //br inputs 1 stage delayed
+    wire        MEM_brLt;
 
     //WB Stage Signals
     wire        WB_Reg_WEn; 
@@ -259,12 +259,12 @@ module datapath(
         end 
         else if (MEM_is_branch) begin
             case (MEM_funct3)
-                3'b000: PCSel = MEM_BrEq;
-                3'b001: PCSel = !MEM_BrEq;
-                3'b100: PCSel = MEM_BrLT;
-                3'b110: PCSel = MEM_BrLT;
-                3'b101: PCSel = !MEM_BrLT;
-                3'b111: PCSel = !MEM_BrLT;
+                3'b000: PCSel = MEM_brEq;
+                3'b001: PCSel = !MEM_brEq;
+                3'b100: PCSel = MEM_brLt;
+                3'b110: PCSel = MEM_brLt;
+                3'b101: PCSel = !MEM_brLt;
+                3'b111: PCSel = !MEM_brLt;
                 default: PCSel = 0;
             endcase
             branch_resolved = 1;
