@@ -23,10 +23,10 @@
 module hazard_unit (
     input  wire       clk,
     input  wire       rst,
-    input  wire [4:0] IFrs1,
-    input  wire [4:0] IFrs2,
-    input  wire [4:0] IDrd,
-    input  wire IDmemRead,
+    input  wire [4:0] IDrs1,
+    input  wire [4:0] IDrs2,
+    input  wire [4:0] EXrd,
+    input  wire EXmemRead,
     input  wire csr_branch_signal,
 
     //flush
@@ -64,8 +64,8 @@ module hazard_unit (
             hazard_signal = `FLUSH_EARLY;
         else if(stall_IMEM || stall_DMEM)
             hazard_signal = `STALL_MMU; 
-        else if(IDmemRead && (IDrd != 0) && ((IDrd == IFrs1) || (IDrd == IFrs2)))
-            hazard_signal = `STALL_EARLY; 
+        else if (EXmemRead && (EXrd != 0) && ((EXrd == IDrs1) || (EXrd == IDrs2)))
+             hazard_signal = `STALL_EARLY;
         else
             hazard_signal = `HS_DN;
         `ifdef DEBUG_HAZARD

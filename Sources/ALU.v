@@ -38,7 +38,7 @@ module ALU(
     input wire        MEM_csr_reg_en,
     input wire        WB_csr_reg_en,
     input wire [31:0] MEM_csr_rresult,
-    input wire [31:0] WB_csr_rresult,
+    input wire [31:0] WB_csr_rresult
     );
     `ifdef DEBUG_ALL
         `define DEBUG_ALU
@@ -57,8 +57,8 @@ module ALU(
       
     assign aEX   = ASel ? PC  : rdata1;
     assign bEX   = BSel ? imm : rdata2;
-    assign a = forwardA[1] ? memdata : (forwardB[0] ? wdata : aEX);
-    assign b = forwardA[1] ? memdata : (forwardB[0] ? wdata : bEX);
+    assign a = forwardA[1] ? memdata : (forwardA[0] ? wdata : aEX);
+    assign b = forwardB[1] ? memdata : (forwardB[0] ? wdata : bEX);
     assign a_s = $signed(a);
     assign b_s = $signed(b);
 

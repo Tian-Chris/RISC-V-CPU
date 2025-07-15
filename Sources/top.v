@@ -37,7 +37,6 @@ module cpu_top (
 
     wire fence;
     wire [31:0] pc;
-    wire [31:0] instruction;
     wire [31:0] alu_out;
     wire [31:0] imm;
     wire [31:0] rdata1;
@@ -53,8 +52,6 @@ module cpu_top (
     wire [2:0]  funct3, imm_gen_sel;
     wire [3:0]  ALU_Sel;
     wire [1:0]  Reg_WBSel, forwardA, forwardB, forwardDmem, forwardBranchA, forwardBranchB;
-    wire [4:0]  IFrs1 = rs1;
-    wire [4:0]  IFrs2 = rs2;
     
     //mmu
     wire  [31:0] csr_satp;
@@ -67,15 +64,13 @@ module cpu_top (
     wire        access_is_load_IMEM = 0;
     wire        access_is_store_IMEM = 0;
     wire        access_is_inst_IMEM = 1;
-    wire [31:0] PPC;
     //mmudmem
     wire        instr_fault_mmu_DMEM;
     wire        load_fault_mmu_DMEM;
     wire        store_fault_mmu_DMEM;
     wire [31:0] faulting_va_DMEM;
     wire        access_is_inst_DMEM = 0;
-    wire [31:0] PPC_DMEM;
-    wire [3:0] hazard_signal;
+    wire [3:0]  hazard_signal;
     
     //ID Stage Reg
     wire  [1:0]  priv;
@@ -84,7 +79,7 @@ module cpu_top (
     wire  [4:0]  IDrs1;
     wire  [4:0]  IDrs2;
     wire  [4:0]  IDrd;
-    wire         IDmemRead;
+    wire         EXmemRead;
     wire  [31:0] IDinstCSR;
     wire         access_is_load_ID;
     wire         access_is_store_ID;
@@ -170,8 +165,8 @@ module cpu_top (
     
     //debug
     `ifdef DEBUG
-      assign pco          = pc;
-      assign instructiono = instruction; 
+      assign pco          = IDPC;
+      assign instructiono = IDinstruct; 
       assign alu_outo     = alu_out;
       assign immo         = imm;
       assign rdata1o      = rdata1;
@@ -316,16 +311,27 @@ module cpu_top (
     .EX_csr_branch_address(EX_csr_branch_address)
   );
 
-  // Instruction Memory
+  // Unified Memory
   imem IMEM (
     //IMEM
     .rst(rst),
-    .inst(instruction),
-    .rd(rd),
-    .rs1(rs1),
-    .rs2(rs2),
     .hazard_signal(hazard_signal),
-    
+
+    //IMEM Decode
+    .pc(pc),
+    .IDinstruct_o(IDinstruct),
+    .IDPC_o(IDPC),
+    .IDrs1_o(IDrs1),
+    .IDrs2_o(IDrs2),
+    .IDrd_o(IDrd),
+    .IDinstCSR_o(IDinstCSR),
+    .fence_active(fence),
+    .invalid_inst(invalid_inst),
+    .faulting_inst(faulting_inst_ID),
+    .access_is_load_ID(access_is_load_ID),
+    .access_is_store_ID(access_is_store_ID),
+    .ecall(ecall),
+
     //DMEM
     .clk(clk),
     .RW(dmemRW),
@@ -368,30 +374,6 @@ module cpu_top (
     .faulting_va_DMEM(faulting_va_DMEM),
     .stall_DMEM(stall_DMEM)
     );
- 
-  // Decoder /IF-ID PIPE
-  decoder DECODER(
-    .clk(clk),
-    .rst(rst),
-    .hazard_signal(hazard_signal),
-    .instruction(instruction),
-    .pc(pc),
-    .rs1(rs1),
-    .rs2(rs2),
-    .rd(rd),
-    .IDinstruct_o(IDinstruct),
-    .IDPC_o(IDPC),
-    .IDrs1_o(IDrs1),
-    .IDrs2_o(IDrs2),
-    .IDrd_o(IDrd),
-    .IDinstCSR_o(IDinstCSR),
-    .fence_active(fence),
-    .invalid_inst(invalid_inst),
-    .faulting_inst(faulting_inst_ID),
-    .access_is_load_ID(access_is_load_ID),
-    .access_is_store_ID(access_is_store_ID),
-    .ecall(ecall)
-  );
 
   imm_gen IMM (
     .clk(clk),
@@ -447,7 +429,7 @@ module cpu_top (
     .branch_early(branch_early),
     .mispredict(mispredict),
     .hazard_signal(hazard_signal),
-    .IDmemRead(IDmemRead),
+    .EXmemRead(EXmemRead),
     .branch_resolved(branch_resolved),
     .actual_taken(actual_taken)
   );    
@@ -526,10 +508,10 @@ module cpu_top (
   hazard_unit HAZARD (
     .clk(clk),
     .rst(rst),
-    .IFrs1(IFrs1),
-    .IFrs2(IFrs2),
-    .IDrd(IDrd),
-    .IDmemRead(IDmemRead),
+    .IDrs1(IDrs1), //Change
+    .IDrs2(IDrs2), //Change
+    .EXrd(EXrd),
+    .EXmemRead(EXmemRead),
     .csr_branch_signal(EX_csr_branch_signal),
     .PCSel(PCSel),
     .jump_taken(jump_taken),

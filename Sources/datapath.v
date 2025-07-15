@@ -41,12 +41,12 @@ module datapath(
     output wire [3:0] ALU_Sel, //0-8 add-shift_right
     output wire dmemRW, //1 = write, 0 = read
     output wire [1:0] Reg_WBSel, // 0 = dmem, 1 = alu, 2 = PC+4
-    output reg [1:0] forwardA,
-    output reg [1:0] forwardB,
-    output reg [1:0] forwardDmem,
-    output reg [1:0] forwardBranchA,
-    output reg [1:0] forwardBranchB,
-    output wire IDmemRead,
+    output reg  [1:0] forwardA,
+    output reg  [1:0] forwardB,
+    output reg  [1:0] forwardDmem,
+    output reg  [1:0] forwardBranchA,
+    output reg  [1:0] forwardBranchB,
+    output wire EXmemRead,
 
     // load hazard detection
     output wire [1:0] Reg_WBSelID,
@@ -200,7 +200,7 @@ module datapath(
     assign ALU_Sel       = EX_ALU_Sel;
     assign funct3        = MEM_funct3;
     assign dmemRW        = MEM_dmemRW;
-    assign IDmemRead     = (ID_Reg_WBSel == 2'b00); //for data hazard
+    assign EXmemRead     = (EX_Reg_WBSel == 2'b00); //for data hazard
 
     // =============
     //  Forwarding

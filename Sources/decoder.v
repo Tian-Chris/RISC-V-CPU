@@ -5,16 +5,14 @@ module decoder (
     input  wire        rst,
     input  wire [3:0]  hazard_signal,
     input  wire [31:0] instruction,
-    input  wire [31:0] pc,
     input  wire [4:0]  rs1,
     input  wire [4:0]  rs2,
     input  wire [4:0]  rd,
-    output wire [31:0] IDinstruct_o,
-    output wire [31:0] IDPC_o,
-    output wire [4:0]  IDrs1_o,
-    output wire [4:0]  IDrs2_o,
-    output wire [4:0]  IDrd_o,
-    output wire [31:0] IDinstCSR_o,
+    output wire [31:0] IDinstruct,
+    output wire [4:0]  IDrs1,
+    output wire [4:0]  IDrs2,
+    output wire [4:0]  IDrd,
+    output wire [31:0] IDinstCSR,
     output wire        invalid_inst,
     output wire        fence_active,
     output wire        access_is_load_ID,
@@ -22,102 +20,40 @@ module decoder (
     output wire [31:0] faulting_inst,
     output wire        ecall
 );
-`include "inst_defs.v"
-`include "csr_defs.v"
-`ifdef DEBUG_ALL
-    `define DEBUG_DECODER
-`endif
-
-reg [31:0] IDinstruct;
-reg [31:0] IDPC;
-reg [4:0]  IDrs1;
-reg [4:0]  IDrs2;
-reg [4:0]  IDrd;
-reg [31:0] IDinstCSR;
-    
-reg        read;
-always @(posedge clk) begin
-    `ifdef DEBUG_DECODER
-        read <= 0;
-        if(hazard_signal != `STALL_MMU || read == 1) begin
-            $display("===========  DECODER  ===========");
-            $display("instruction: %h, pc: %h, rs1: %h, rs2: %h, rd: %h", instruction, pc, rs1, rs2, rd);
-            $display("Invalid Instruction: %b, IDins: %h, IDPC: %h, IDrs1: %h, IDrs2: %h, IDrd: %h, IDinstCSR: %h", invalid_inst, IDinstruct, IDPC, IDrs1, IDrs2, IDrd, IDinstCSR);
-            $display("hazard_signal: %b", hazard_signal);
-            if(read == 0)
-                read <= 1;
-        end
+    `include "inst_defs.v"
+    `include "csr_defs.v"
+    `ifdef DEBUG_ALL
+        `define DEBUG_DECODER
     `endif
-    if(rst) begin
-        IDinstruct <= `INST_NOP;
-        IDPC       <= 32'h00000000;
-        IDrs1      <= 5'b0;              
-        IDrs2      <= 5'b0;
-        IDrd       <= 5'b0; 
-        IDinstCSR  <= `INST_NOP;   
-    end
-    else if (hazard_signal != `STALL_EARLY && hazard_signal != `STALL_MMU) begin
-        if (hazard_signal == `FLUSH_EARLY || hazard_signal == `FLUSH_ALL || fence_active) begin
-            IDinstruct  <= `INST_NOP;
-            IDrs1       <= 5'b0;            
-            IDrs2       <= 5'b0;
-            IDrd        <= 5'b0;
-            IDinstCSR  <= 32'b0;                     
-        end
-        else if(instruction[6:0] == 7'b1110011) begin
-            IDinstruct <= instruction;
-            IDPC       <= pc;
-            IDrs1      <= rs1;              
-            IDrs2      <= 5'b0;
-            IDrd       <= rd;              
-            IDinstCSR  <= instruction;
-        end
-        else begin
-            IDinstruct <= instruction;
-            IDPC       <= pc;
-            IDrs1      <= rs1;
-            IDrs2      <= rs2;
-            IDrd       <= rd;
-            IDinstCSR  <= 32'b0;
-        end
-    end 
-    else if (hazard_signal == `STALL_EARLY) begin
-        IDinstruct <= `INST_NOP;
-        IDrs1      <= 5'b0;              
-        IDrs2      <= 5'b0;
-        IDrd       <= 5'b0;  
-        IDinstCSR  <= 32'b0;            
-    end
-end
+    
+    assign IDinstruct = instruction;
+    assign IDrs1      = rs1;              
+    assign IDrs2      = (instruction[6:0] == 7'b1110011) ? 5'b0        : rs2;
+    assign IDrd       = rd;              
+    assign IDinstCSR  = (instruction[6:0] == 7'b1110011) ? instruction : 32'b0;
 
-reg [3:0] fence_stall_counter;
-reg fence_stall_active;
-assign fence_active = fence_stall_active || fence;
-always @(posedge clk or posedge rst) begin
-    if (rst || hazard_signal == `FLUSH_EARLY || hazard_signal == `FLUSH_ALL ) begin
-        fence_stall_counter <= 0;
-        fence_stall_active <= 0;
-    end else begin
-        if (fence && !fence_stall_active) begin
-            fence_stall_active <= 1;
-            fence_stall_counter <= 8;  // Stall for 8 cycles
-        end else if (fence_stall_active) begin
-            if (fence_stall_counter > 1)
-                fence_stall_counter <= fence_stall_counter - 1;
-            else begin
-                fence_stall_counter <= 0;
-                fence_stall_active <= 0;
+    reg [3:0] fence_stall_counter;
+    reg fence_stall_active;
+    assign fence_active = fence_stall_active || fence;
+    always @(posedge clk or posedge rst) begin
+        if (rst || hazard_signal == `FLUSH_EARLY || hazard_signal == `FLUSH_ALL ) begin
+            fence_stall_counter <= 0;
+            fence_stall_active <= 0;
+        end else begin
+            if (fence && !fence_stall_active) begin
+                fence_stall_active <= 1;
+                fence_stall_counter <= 8;  // Stall for 8 cycles
+            end else if (fence_stall_active) begin
+                if (fence_stall_counter > 1)
+                    fence_stall_counter <= fence_stall_counter - 1;
+                else begin
+                    fence_stall_counter <= 0;
+                    fence_stall_active <= 0;
+                end
             end
         end
     end
-end
 
-    assign IDinstruct_o = IDinstruct;
-    assign IDPC_o = IDPC;
-    assign IDrs1_o = IDrs1;
-    assign IDrs2_o = IDrs2;
-    assign IDrd_o = IDrd;
-    assign IDinstCSR_o = IDinstCSR;
     assign invalid_inst = ~((IDinstruct  == `INST_NOP)    ||
         ((IDinstruct & `INST_ADD_MASK)   == `INST_ADD)    ||
         ((IDinstruct & `INST_SUB_MASK)   == `INST_SUB)    ||

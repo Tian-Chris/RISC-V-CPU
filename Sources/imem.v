@@ -7,11 +7,22 @@
 module imem #(parameter MEMSIZE = 20000) (
     //IMEM
     input  wire        rst,
-    output reg  [31:0] inst,
-    output reg  [4:0]  rd,
-    output reg  [4:0]  rs1,
-    output reg  [4:0]  rs2,
     input  wire [3:0]  hazard_signal,
+
+    //DECODER
+    input  wire [31:0] pc,
+    output wire [31:0] IDinstruct_o,
+    output wire [31:0] IDPC_o,
+    output wire [4:0]  IDrs1_o,
+    output wire [4:0]  IDrs2_o,
+    output wire [4:0]  IDrd_o,
+    output wire [31:0] IDinstCSR_o,
+    output wire        invalid_inst,
+    output wire        fence_active,
+    output wire        access_is_load_ID,
+    output wire        access_is_store_ID,
+    output wire [31:0] faulting_inst,
+    output wire        ecall,
 
     //DMEM
     input  wire        clk,
@@ -24,7 +35,7 @@ module imem #(parameter MEMSIZE = 20000) (
     input  wire        sstatus_sum, //bit 18
     input  wire [31:0] csr_satp,       
 
-    //IMEM    
+    //IMEM MMU
     input  wire [1:0]  priv_IMEM, 
     input  wire [31:0] VPC_IMEM,       
     input  wire        validID,  
@@ -35,11 +46,10 @@ module imem #(parameter MEMSIZE = 20000) (
     output wire        load_fault_mmu_IMEM,
     output wire        store_fault_mmu_IMEM,
     output wire [31:0] faulting_va_IMEM,
-    output wire [31:0] PPC_IMEM,
     output wire        stall_IMEM,
 
 
-    //DMEM
+    //DMEM MMU
     input  wire [1:0]  priv_DMEM,
     input  wire [31:0] VPC_DMEM, 
     input  wire        validMEM,  
@@ -50,7 +60,6 @@ module imem #(parameter MEMSIZE = 20000) (
     output wire        load_fault_mmu_DMEM,
     output wire        store_fault_mmu_DMEM,
     output wire [31:0] faulting_va_DMEM,
-    output wire [31:0] PPC_DMEM,
     output wire        stall_DMEM,
 
     //CLINT
@@ -74,6 +83,8 @@ module imem #(parameter MEMSIZE = 20000) (
     localparam [31:0] RAM_END    = RAM_BASE + RAM_SIZE;
 
     //MMU
+    wire [31:0] PPC_IMEM;
+    wire [31:0] PPC_DMEM;
     wire        virtual_mode_I = (csr_satp[31] && priv_IMEM != `PRIV_MACHINE);
     reg         LFM_resolved_IMEM;
     reg  [31:0] IMEM_word;
@@ -95,12 +106,49 @@ module imem #(parameter MEMSIZE = 20000) (
     // ========
     //   IMEM
     // ========
-    always @(*) begin
-        inst = unified_mem[IMEM_ram[31:2]];
-        rd  = inst[11:7];
-        rs1 = inst[19:15];
-        rs2 = inst[24:20];
+    reg  [31:0] inst;
+    reg  [4:0]  rd;
+    reg  [4:0]  rs1;
+    reg  [4:0]  rs2;
+    reg  [31:0] IDPC;
+    always @(posedge clk) begin
+        IDPC <= pc;
+        if(rst || hazard_signal == `STALL_EARLY || hazard_signal == `FLUSH_EARLY || hazard_signal == `FLUSH_ALL || fence_active) begin
+            inst <= `INST_NOP;
+            if(rst)
+                IDPC <= 32'b0;
+        end
+        else if (hazard_signal != `STALL_EARLY && hazard_signal != `STALL_MMU) begin
+            inst <= unified_mem[IMEM_ram[31:2]];
+        end
     end
+    always @(*) begin
+        rd   = inst[11:7];
+        rs1  = inst[19:15];
+        rs2  = inst[24:20];
+    end
+    assign IDPC_o = IDPC;
+
+    decoder DEC (
+        .clk(clk),
+        .rst(rst),
+        .hazard_signal(hazard_signal),
+        .instruction(inst),
+        .rs1(rs1),
+        .rs2(rs2),
+        .rd(rd),
+        .IDinstruct(IDinstruct_o),
+        .IDrs1(IDrs1_o),
+        .IDrs2(IDrs2_o),
+        .IDrd(IDrd_o),
+        .IDinstCSR(IDinstCSR_o),
+        .invalid_inst(invalid_inst),
+        .fence_active(fence_active),
+        .access_is_load_ID(access_is_load_ID),
+        .access_is_store_ID(access_is_store_ID),
+        .faulting_inst(faulting_inst),
+        .ecall(ecall)
+    );
 
     // ========
     //   UART
@@ -310,9 +358,9 @@ end
                 STATE <= IDLE;
         endcase
     end
-    wire MMU_hand_shake = IMEM_busy || DMEM_busy;
     wire IMEM_busy;
     wire DMEM_busy;
+    wire MMU_hand_shake = IMEM_busy || DMEM_busy;
     MMU_unit IMEM_MMU (
         .clk(clk),
         .rst(rst),
