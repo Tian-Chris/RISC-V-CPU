@@ -30,10 +30,10 @@ module PC(
     input  wire        jump_taken, //for early jump/branch
     input  wire        mispredict,
     input  wire [31:0] PC_savedMEM,
-    output reg  [31:0] PC,
     input  wire        EX_csr_branch_signal,
     input  wire [31:0] EX_csr_branch_address,
-    input  wire        fence
+    input  wire        fence,
+    output reg  [31:0] PC
     );
     `ifdef DEBUG_ALL
         `define DEBUG_PC

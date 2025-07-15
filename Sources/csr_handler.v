@@ -182,7 +182,7 @@ always @(posedge clk) begin
         csr_raddr_clocked <= 32'b0;
         output_data       <= 32'b0;
     end 
-    else begin
+    else if(hazard_signal != `STALL_MMU)begin
         csr_rdata_clocked <= csr_rdata_forward;
         csr_raddr_clocked <= csr_raddr;
         case(csr_op_type)
@@ -216,7 +216,7 @@ always @(posedge clk) begin
         csr_addr_MEM <= 0;
         csr_rdata_MEM <= 0;
     end
-    else begin
+    else if(hazard_signal != `STALL_MMU)begin
         csr_addr_MEM  <= csr_addr_EX;
         csr_rdata_MEM <= csr_rdata_EX;
     end

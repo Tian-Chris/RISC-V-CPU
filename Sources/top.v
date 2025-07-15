@@ -180,6 +180,7 @@ module cpu_top (
     `endif 
     
     always @(posedge clk) begin
+        $display("========== TOP ===========");
         $display("EX_IMM: %h, imm: %h", EXimm, imm);
         $display(
         "EXPC: %h, IDPC: %h | EXrdata1: %h, rdata1: %h | EXrdata2: %h, rdata2: %h | EXimm: %h, imm: %h | EXrd: %h, IDrd: %h |",
@@ -199,6 +200,15 @@ module cpu_top (
         "access_is_load_EX: %b, access_is_load_ID: %b | access_is_store_EX: %b, access_is_store_ID: %b",
         access_is_load_EX, access_is_load_ID,
         access_is_store_EX, access_is_store_ID
+    );
+    $display("Alu: %h", alu_out);
+        $display(
+        "MEMPC: %h, MEMrdata2: %h | MEMAlu: %h, MEMrd: %d\nMEMjump_taken: %b, pht_indexMEM: %h | PC_savedMEM: %h, MEM_csr_reg_en: %b\naccess_is_load_MEM: %b, access_is_store_MEM: %b",
+        MEMPC, MEMrdata2,
+        MEMAlu, MEMrd,
+        MEMjump_taken, pht_indexMEM,
+        PC_savedMEM, MEM_csr_reg_en,
+        access_is_load_MEM, access_is_store_MEM
     );
         if(rst) begin
             priv_ID      <= `PRIV_MACHINE;
@@ -268,7 +278,24 @@ module cpu_top (
         );
     assign {WBPC, WBdmem, WBAlu, WBrd, WB_csr_rresult, WB_csr_reg_en, WB_csr_data_to_wb, WB_csr_addr_to_wb} = WB_OUT; 
 
-
+  //Validity bit for MMU unit
+  wire valid = 1;
+  wire validID;
+  wire validEX;
+  wire validMEM;
+  wire validWB;
+  Pipe #(.STAGE(`STAGE_ID), .WIDTH(1)) PIPE_VID (
+    .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(valid), .out_data(validID)
+    );
+  Pipe #(.STAGE(`STAGE_EX), .WIDTH(1)) PIPE_VEX (
+    .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(validID), .out_data(validEX)
+    );
+  Pipe #(.STAGE(`STAGE_MEM), .WIDTH(1)) PIPE_VMEM (
+    .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(validEX), .out_data(validMEM)
+    );
+  Pipe #(.STAGE(`STAGE_WB), .WIDTH(1)) PIPE_VWB (
+  .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(validMEM), .out_data(validWB)
+  );
   // ===========
   //   Modules
   // ===========
@@ -318,6 +345,7 @@ module cpu_top (
     //IMEM
     .priv_IMEM(priv_ID),
     .VPC_IMEM(pc), 
+    .validID(valid), // IMEM is IF stage not ID
     .access_is_load_IMEM(access_is_load_IMEM),
     .access_is_store_IMEM(access_is_store_IMEM),
     .access_is_inst_IMEM(access_is_inst_IMEM),
@@ -330,6 +358,7 @@ module cpu_top (
     //DMEM
     .priv_DMEM(priv_MEM),
     .VPC_DMEM(MEMAlu), 
+    .validMEM(validWB),
     .access_is_load_DMEM(access_is_load_MEM),
     .access_is_store_DMEM(access_is_store_MEM),
     .access_is_inst_DMEM(access_is_inst_DMEM),
@@ -542,7 +571,13 @@ module cpu_top (
     .WBPC(WBPC),
     .WBSel(Reg_WBSel),
     .forwardA(forwardA),
-    .forwardB(forwardB)
+    .forwardB(forwardB),
+
+    //csr forward
+    .MEM_csr_reg_en(MEM_csr_reg_en),
+    .WB_csr_reg_en(WB_csr_reg_en),
+    .MEM_csr_rresult(MEM_csr_rresult),
+    .WB_csr_rresult(WB_csr_rresult)
   );
 
   branch_comp COMP (

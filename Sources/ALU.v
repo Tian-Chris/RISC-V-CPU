@@ -32,7 +32,13 @@ module ALU(
     input wire [1:0] WBSel,
     input wire [1:0] forwardA,
     input wire [1:0] forwardB,
-    output reg [31:0] result //consider swapping to wire
+    output reg [31:0] result, //consider swapping to wire
+
+    //csr forward
+    input wire        MEM_csr_reg_en,
+    input wire        WB_csr_reg_en,
+    input wire [31:0] MEM_csr_rresult,
+    input wire [31:0] WB_csr_rresult,
     );
     `ifdef DEBUG_ALL
         `define DEBUG_ALU
@@ -42,14 +48,17 @@ module ALU(
     wire [31:0] aEX, bEX;
     wire [31:0] a, b;
     wire signed [31:0] a_s, b_s; //signed
-    
-    assign wdata = (WBSel == 2'b00) ? WBdmem : 
-                   (WBSel == 2'b01) ? WBAlu : WBPC + 4;
+    wire [31:0] memdata;
+ 
+    assign wdata =  (WB_csr_reg_en) ? WB_csr_rresult :
+                    (WBSel == 2'b00) ? WBdmem : 
+                    (WBSel == 2'b01) ? WBAlu : WBPC + 4;
+    assign memdata = MEM_csr_reg_en ? MEM_csr_rresult : MEMAlu;
       
     assign aEX   = ASel ? PC  : rdata1;
     assign bEX   = BSel ? imm : rdata2;
-    assign a = forwardA[1] ? MEMAlu : (forwardA[0] ? wdata : aEX);
-    assign b = forwardB[1] ? MEMAlu : (forwardB[0] ? wdata : bEX);
+    assign a = forwardA[1] ? memdata : (forwardB[0] ? wdata : aEX);
+    assign b = forwardA[1] ? memdata : (forwardB[0] ? wdata : bEX);
     assign a_s = $signed(a);
     assign b_s = $signed(b);
 

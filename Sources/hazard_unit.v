@@ -80,6 +80,9 @@ module hazard_unit (
     wire PC_MEM;
     wire invalid_inst_EX;
     wire invalid_inst_MEM;
+    wire instr_fault_mmu_IMEM_ID;
+    wire load_fault_mmu_IMEM_ID;
+    wire store_fault_mmu_IMEM_ID;
     wire instr_fault_mmu_IMEM_EX;
     wire load_fault_mmu_IMEM_EX;
     wire store_fault_mmu_IMEM_EX;
@@ -88,24 +91,29 @@ module hazard_unit (
     wire store_fault_mmu_IMEM_MEM;
     wire [31:0] faulting_inst_EX;
     wire [31:0] faulting_inst_MEM;
+    wire [31:0] faulting_va_IMEM_ID;
     wire [31:0] faulting_va_IMEM_EX;
     wire [31:0] faulting_va_IMEM_MEM;
 
+    localparam IDBUNDLE_WIDTH = 1 + 1 + 1 + 32; 
     localparam EXBUNDLE_WIDTH = 1 + 1 + 1 + 1 + 1 + 32 + 32; 
     localparam MEMBUNDLE_WIDTH = 1 + 1 + 1 + 1 + 1 + 32 + 32; 
-    wire [EXBUNDLE_WIDTH-1:0] EXBUNDLE = {PC_ID, invalid_inst, instr_fault_mmu_IMEM, load_fault_mmu_IMEM, store_fault_mmu_IMEM, faulting_inst_i, faulting_va_IMEM_i};
+    wire [IDBUNDLE_WIDTH-1:0] IDBUNDLE = {pc_misaligned, instr_fault_mmu_IMEM, load_fault_mmu_IMEM, store_fault_mmu_IMEM, faulting_va_IMEM_i};
+    wire [IDBUNDLE_WIDTH-1:0] IDBUNDLE_OUT;
+    wire [EXBUNDLE_WIDTH-1:0] EXBUNDLE = {PC_ID, invalid_inst, instr_fault_mmu_IMEM_ID, load_fault_mmu_IMEM_ID, store_fault_mmu_IMEM_ID, faulting_inst_i, faulting_va_IMEM_ID};
     wire [EXBUNDLE_WIDTH-1:0] EXBUNDLE_OUT;
     wire [MEMBUNDLE_WIDTH-1:0] MEMBUNDLE = {PC_EX, invalid_inst_EX, instr_fault_mmu_IMEM_EX, load_fault_mmu_IMEM_EX, store_fault_mmu_IMEM_EX, faulting_inst_EX, faulting_va_IMEM_EX};
     wire [MEMBUNDLE_WIDTH-1:0] MEMBUNDLE_OUT;
-    Pipe #(.STAGE(`STAGE_ID), .WIDTH(1)) PIPE_ID (
-        .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(pc_misaligned), .out_data(PC_ID)
+    Pipe #(.STAGE(`STAGE_ID), .WIDTH(IDBUNDLE_WIDTH)) PIPE_ID (
+        .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(IDBUNDLE), .out_data(IDBUNDLE_OUT)
         );
     Pipe #(.STAGE(`STAGE_EX), .WIDTH(EXBUNDLE_WIDTH)) PIPE_EX (
         .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(EXBUNDLE), .out_data(EXBUNDLE_OUT)
         );
-    Pipe #(.STAGE(`STAGE_EX), .WIDTH(MEMBUNDLE_WIDTH)) PIPE_MEM (
+    Pipe #(.STAGE(`STAGE_MEM), .WIDTH(MEMBUNDLE_WIDTH)) PIPE_MEM (
         .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(MEMBUNDLE), .out_data(MEMBUNDLE_OUT)
         );
+    assign {PC_ID, instr_fault_mmu_IMEM_ID, load_fault_mmu_IMEM_ID, store_fault_mmu_IMEM_ID, faulting_va_IMEM_ID} = IDBUNDLE_OUT; 
     assign {PC_EX, invalid_inst_EX, instr_fault_mmu_IMEM_EX, load_fault_mmu_IMEM_EX, store_fault_mmu_IMEM_EX, faulting_inst_EX, faulting_va_IMEM_EX} = EXBUNDLE_OUT; 
     assign {PC_MEM, invalid_inst_MEM, instr_fault_mmu_IMEM_MEM, load_fault_mmu_IMEM_MEM, store_fault_mmu_IMEM_MEM, faulting_inst_MEM, faulting_va_IMEM_MEM} = MEMBUNDLE_OUT; 
 

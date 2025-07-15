@@ -26,7 +26,8 @@ module imem #(parameter MEMSIZE = 20000) (
 
     //IMEM    
     input  wire [1:0]  priv_IMEM, 
-    input  wire [31:0] VPC_IMEM,         
+    input  wire [31:0] VPC_IMEM,       
+    input  wire        validID,  
     input  wire        access_is_load_IMEM,
     input  wire        access_is_store_IMEM,
     input  wire        access_is_inst_IMEM,
@@ -41,6 +42,7 @@ module imem #(parameter MEMSIZE = 20000) (
     //DMEM
     input  wire [1:0]  priv_DMEM,
     input  wire [31:0] VPC_DMEM, 
+    input  wire        validMEM,  
     input  wire        access_is_load_DMEM,
     input  wire        access_is_store_DMEM,
     input  wire        access_is_inst_DMEM,
@@ -143,6 +145,7 @@ module imem #(parameter MEMSIZE = 20000) (
     always @(posedge clk) begin
         `ifdef DEBUG_IMEM
             $display("===========  IMEM  ===========");
+            $display("validID: %h, validMEM: %h", validID, validMEM);
             $display("[MEM] RW: %b, addr=%h, data=%h, rdata=%h", RW, DMEM_Addr, wdata, rdata);
             $display("[MEM] 0 %h", unified_mem[32'h00000000 >> 2]);
             $display("[MEM] aec8: %h%h%h%h, aecc: %h%h%h%h af54: %h%h%h%h", unified_mem[32'h0000aecB >> 2],unified_mem[32'h0000aeca >> 2],unified_mem[32'h0000aec9 >> 2],unified_mem[32'h0000aec8 >> 2], unified_mem[32'h0000aecf >> 2],
@@ -313,9 +316,11 @@ end
     MMU_unit IMEM_MMU (
         .clk(clk),
         .rst(rst),
+        .hazard_signal(hazard_signal),
         .VPC(VPC_IMEM),
         .csr_satp(csr_satp),    
         .priv(priv_IMEM),    
+        .valid(validID),
         .LFM_resolved(LFM_resolved_IMEM),
         .LFM_word(IMEM_word),
         .sstatus_sum(sstatus_sum), //bit 18
@@ -337,9 +342,11 @@ end
     MMU_unit DMEM_MMU (
         .clk(clk),
         .rst(rst),
+        .hazard_signal(hazard_signal),
         .VPC(VPC_DMEM),
         .csr_satp(csr_satp),    
-        .priv(priv_DMEM),    
+        .priv(priv_DMEM),   
+        .valid(validMEM), 
         .LFM_resolved(LFM_resolved_DMEM),
         .LFM_word(DMEM_word),
         .sstatus_sum(sstatus_sum), //bit 18

@@ -1,9 +1,11 @@
 module MMU_unit( 
-    input wire clk,
-    input wire rst,
+    input  wire clk,
+    input  wire rst,
+    input  wire [3:0]  hazard_signal,
     input  wire [31:0] VPC,         
     input  wire [31:0] csr_satp,    
     input  wire [1:0]  priv,    
+    input  wire        valid,
     input  wire        LFM_resolved,
     input  wire [31:0] LFM_word,
     input  wire        MMU_hand_shake,
@@ -50,8 +52,7 @@ always @(posedge clk) begin
         $display("===========  MMU  ===========");
         $display("MMU => State: %h, Stall: %h, priv: %h, except: %h, ", STATE, stall, priv, exception);
     `endif
-    if(rst) begin
-        stall       <= 0;
+    if(rst || hazard_signal == `FLUSH_ALL) begin
         exception   <= 0;
         STATE       <= IDLE;
         PC          <= 32'hDEAD_BEEF;
@@ -61,7 +62,8 @@ always @(posedge clk) begin
     else begin
     case(STATE)
         IDLE: begin
-            stall       <= 0;
+            if(hazard_signal != `FLUSH_ALL)
+                stall       <= 0;
             exception   <= 0;
             MMU_busy    <= 0;
             if (csr_satp[31] && priv != `PRIV_MACHINE) begin
@@ -69,12 +71,12 @@ always @(posedge clk) begin
                 $display("[MMU] VPN1=0x%h, VPN0=0x%h", vpn1, vpn0);
                 stall       <= 1;
                 MMU_busy    <= 1;
-                LFM_enable  <= 1;
-                LFM         <= l1_addr; //load from memory
                 STATE       <= LFM1;
             end
         end
         LFM1: begin
+            LFM_enable  <= 1;
+            LFM         <= l1_addr; //load from memory
             if(LFM_resolved) begin
                 LFM_enable  <= 0;
                 $display("[MMU] L1 PTE fetched: PA=0x%h, data=0x%h", l1_addr, LFM_word);
@@ -203,8 +205,8 @@ end
 
 //exception
 assign faulting_va     = VPC;
-assign instr_fault_mmu = exception ? (access_is_inst ? 1'b1 : 1'b0) : 1'b0;
-assign load_fault_mmu  = exception ? (access_is_load  ? 1'b1 : 1'b0) : 1'b0;
-assign store_fault_mmu = exception ? (access_is_store ? 1'b1 : 1'b0) : 1'b0;
+assign instr_fault_mmu = exception && valid && access_is_inst;
+assign load_fault_mmu  = exception && valid && access_is_load;
+assign store_fault_mmu = exception && valid && access_is_store;
 
 endmodule
