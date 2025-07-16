@@ -113,7 +113,7 @@ module imem #(parameter MEMSIZE = 20000) (
     reg  [31:0] IDPC;
     always @(posedge clk) begin
         IDPC <= pc;
-        if(rst || hazard_signal == `STALL_EARLY || hazard_signal == `FLUSH_EARLY || hazard_signal == `FLUSH_ALL || fence_active) begin
+        if(rst || hazard_signal == `FLUSH_EARLY || hazard_signal == `FLUSH_ALL || fence_active) begin
             inst <= `INST_NOP;
             if(rst)
                 IDPC <= 32'b0;
