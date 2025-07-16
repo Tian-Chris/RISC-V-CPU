@@ -112,7 +112,6 @@ module imem #(parameter MEMSIZE = 20000) (
     reg  [4:0]  rs2;
     reg  [31:0] IDPC;
     always @(posedge clk) begin
-        IDPC <= pc;
         if(rst || hazard_signal == `FLUSH_EARLY || hazard_signal == `FLUSH_ALL || fence_active) begin
             inst <= `INST_NOP;
             if(rst)
@@ -120,6 +119,7 @@ module imem #(parameter MEMSIZE = 20000) (
         end
         else if (hazard_signal != `STALL_EARLY && hazard_signal != `STALL_MMU) begin
             inst <= unified_mem[IMEM_ram[31:2]];
+            IDPC <= pc;
         end
     end
     always @(*) begin
@@ -192,12 +192,10 @@ module imem #(parameter MEMSIZE = 20000) (
     reg [31:0] rdataclked;
     always @(posedge clk) begin
         `ifdef DEBUG_IMEM
-            $display("===========  IMEM  ===========");
-            $display("validID: %h, validMEM: %h", validID, validMEM);
-            $display("[MEM] RW: %b, addr=%h, data=%h, rdata=%h", RW, DMEM_Addr, wdata, rdata);
-            $display("[MEM] 0 %h", unified_mem[32'h00000000 >> 2]);
-            $display("[MEM] aec8: %h%h%h%h, aecc: %h%h%h%h af54: %h%h%h%h", unified_mem[32'h0000aecB >> 2],unified_mem[32'h0000aeca >> 2],unified_mem[32'h0000aec9 >> 2],unified_mem[32'h0000aec8 >> 2], unified_mem[32'h0000aecf >> 2],
-            unified_mem[32'h0000aece >> 2],unified_mem[32'h0000aecd >> 2],unified_mem[32'h0000aecc >> 2], unified_mem[32'h0000af57 >> 2], unified_mem[32'h0000af56 >> 2], unified_mem[32'h0000af55 >> 2], unified_mem[32'h0000af54 >> 2]);
+            if(RW == 1) begin
+                $display("===========  IMEM  ===========");
+                $display("[MEM] RW: %b, addr=%h, data=%h, rdata=%h", RW, DMEM_Addr, wdata, rdata);
+            end
         `endif
         uart_fifo_write_en <= 0;
         rdataclked <= rdata;
@@ -245,9 +243,6 @@ module imem #(parameter MEMSIZE = 20000) (
     end
 
 always @(*) begin
-    `ifdef DEBUG_IMEM
-        $display("hazard_signal: %b, funct3: %b", hazard_signal, funct3);
-    `endif
     if ((!RW) && (hazard_signal != `STALL_MMU)) begin
         case (DMEM_Addr)
             `UART_READ_ADDR:    rdata = {27'b0, rx_ready, 3'b0, tx_ready};
@@ -330,6 +325,7 @@ end
     always @(posedge clk ) begin
         `ifdef DEBUG_IMEM
             $display("IMEM => State: %h, virtual_mode_I: %h, virtual_mode_D: %h, LFM_enable_IMEM: %h, LFM_enable_DMEM: %h", STATE, virtual_mode_I, virtual_mode_D, LFM_enable_IMEM, LFM_enable_DMEM);
+            $display("8000affc:, %h", unified_mem[32'h0000affc >> 2]);
         `endif
         if(rst)
             STATE <= IDLE;

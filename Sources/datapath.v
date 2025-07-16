@@ -160,7 +160,7 @@ module datapath(
     localparam WB_WIDTH = 1 + 2;
     wire [WB_WIDTH-1:0]  WB = {MEM_Reg_WEn, MEM_Reg_WBSel};
     wire [WB_WIDTH-1:0]  WB_OUT;
-    Pipe #(.STAGE(`STAGE_MEM), .WIDTH(WB_WIDTH)) PIPE_WB (
+    Pipe #(.STAGE(`STAGE_WB), .WIDTH(WB_WIDTH)) PIPE_WB (
         .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(WB), .out_data(WB_OUT)
         );
     assign {WB_Reg_WEn, WB_Reg_WBSel} = WB_OUT; 

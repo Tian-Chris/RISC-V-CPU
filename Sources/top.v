@@ -175,6 +175,7 @@ module cpu_top (
     `endif 
     
     always @(posedge clk) begin
+        `ifdef DEBUG_TOP
         $display("========== TOP ===========");
         $display("EX_IMM: %h, imm: %h", EXimm, imm);
         $display(
@@ -205,6 +206,7 @@ module cpu_top (
         PC_savedMEM, MEM_csr_reg_en,
         access_is_load_MEM, access_is_store_MEM
     );
+    `endif 
         if(rst) begin
             priv_ID      <= `PRIV_MACHINE;
             priv_EX      <= `PRIV_MACHINE;
@@ -364,7 +366,7 @@ module cpu_top (
     //DMEM
     .priv_DMEM(priv_MEM),
     .VPC_DMEM(MEMAlu), 
-    .validMEM(validWB),
+    .validMEM(validMEM),
     .access_is_load_DMEM(access_is_load_MEM),
     .access_is_store_DMEM(access_is_store_MEM),
     .access_is_inst_DMEM(access_is_inst_DMEM),

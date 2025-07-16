@@ -60,10 +60,10 @@ module hazard_unit (
     always @(*) begin
         if(PCSel || csr_branch_signal || trapID != `EXCEPT_DO_NOTHING)
             hazard_signal = `FLUSH_ALL;
-        else if(jump_taken)
-            hazard_signal = `FLUSH_EARLY;
         else if(stall_IMEM || stall_DMEM)
             hazard_signal = `STALL_MMU; 
+        else if(jump_taken)
+            hazard_signal = `FLUSH_EARLY;
         else if (EXmemRead && (EXrd != 0) && ((EXrd == IDrs1) || (EXrd == IDrs2)))
              hazard_signal = `STALL_EARLY;
         else
