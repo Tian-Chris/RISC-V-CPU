@@ -4,7 +4,7 @@
 // Module Name: imem
 //////////////////////////////////////////////////////////////////////////////////
 
-module imem #(parameter MEMSIZE = 20000) (
+module imem #(parameter MEMSIZE = 50000) (
     //IMEM
     input  wire        rst,
     input  wire [3:0]  hazard_signal,
@@ -28,8 +28,10 @@ module imem #(parameter MEMSIZE = 20000) (
     input  wire        clk,
     input  wire        RW, // 1 = write, 0 = read
     input  wire [2:0]  funct3,
-    input  wire [31:0] wdata,
+    input  wire [31:0] write_data,
     output reg  [31:0] rdata,
+    input wire WB_csr_reg_en,
+    input wire [31:0] WB_csr_rresult,
 
     //MMU
     input  wire        sstatus_sum, //bit 18
@@ -189,7 +191,8 @@ module imem #(parameter MEMSIZE = 20000) (
     // ========
     //   DMEM
     // ========
-    reg [31:0] rdataclked;
+    reg  [31:0] rdataclked;
+    wire [31:0] wdata =  (WB_csr_reg_en) ? WB_csr_rresult : write_data;
     always @(posedge clk) begin
         `ifdef DEBUG_IMEM
             if(RW == 1) begin
@@ -325,7 +328,7 @@ end
     always @(posedge clk ) begin
         `ifdef DEBUG_IMEM
             $display("IMEM => State: %h, virtual_mode_I: %h, virtual_mode_D: %h, LFM_enable_IMEM: %h, LFM_enable_DMEM: %h", STATE, virtual_mode_I, virtual_mode_D, LFM_enable_IMEM, LFM_enable_DMEM);
-            $display("8000affc:, %h", unified_mem[32'h0000affc >> 2]);
+            $display("8000af74:, %h", unified_mem[32'h0000af74 >> 2]);
         `endif
         if(rst)
             STATE <= IDLE;

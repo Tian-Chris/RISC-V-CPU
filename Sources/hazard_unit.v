@@ -62,10 +62,10 @@ module hazard_unit (
             hazard_signal = `FLUSH_ALL;
         else if(stall_IMEM || stall_DMEM)
             hazard_signal = `STALL_MMU; 
+        else if (EXmemRead && (EXrd != 0) && ((EXrd == IDrs1) || (EXrd == IDrs2)))
+            hazard_signal = `STALL_EARLY;
         else if(jump_taken)
             hazard_signal = `FLUSH_EARLY;
-        else if (EXmemRead && (EXrd != 0) && ((EXrd == IDrs1) || (EXrd == IDrs2)))
-             hazard_signal = `STALL_EARLY;
         else
             hazard_signal = `HS_DN;
         `ifdef DEBUG_HAZARD

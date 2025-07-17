@@ -85,23 +85,24 @@ always @(posedge clk) begin
         READL1: begin
             if (^l1_pte === 1'bx) begin
                 exception <= 1'b1;
-                PC        <= 32'hDEAD_BEEF;
+                PC        <= 32'hDEAD_0001;
                 STATE     <= DONE;
             end
             //check priv
-            else if(l1_pte[4] == 0 && priv == `PRIV_USER) begin
+            // else if(l1_pte[4] == 0 && priv == `PRIV_USER) begin
+            //     exception   <= 1;
+            //     PC          <= 32'hDEAD_0002;
+            //     STATE       <= DONE;
+            // end 
+            else if(l1_pte[4] == 1 && priv == `PRIV_SUPER && sstatus_sum == 0) begin
                 exception   <= 1;
-                PC          <= 32'hDEAD_BEEF;
-                STATE       <= DONE;
-            end else if(l1_pte[4] == 1 && priv == `PRIV_SUPER && sstatus_sum == 0) begin
-                exception   <= 1;
-                PC          <= 32'hDEAD_BEEF;
+                PC          <= 32'hDEAD_0003;
                 STATE       <= DONE;
             end
             // check l1 validity
             else if (l1_pte[0] == 0) begin
                 exception   <= 1'b1;
-                PC          <= 32'hDEAD_BEEF;
+                PC          <= 32'hDEAD_0004;
                 STATE       <= DONE;
             end 
             else if ((l1_pte[1] == 0) && (l1_pte[2] == 0)) begin //if neither read and write or exec its not a superleaf
@@ -115,12 +116,15 @@ always @(posedge clk) begin
                     (access_is_store && (l1_pte[2] == 0 || l1_pte[7] == 0)) ) begin //checks dirty bit as well
                     // if dirty bit = 0 except -> trap -> os -> sets db to 1
                     exception   <= 1'b1;
-                    PC          <= 32'hDEAD_BEEF;
+                    PC          <= 32'hDEAD_0005;
                     STATE       <= DONE;
                 end else begin
+                    $display("SuperLeaf");
+                    $display("VPC: %h", VPC);
+                    $display("PC: %h", {l1_pte[31:20], vpn0, VPC[11:0]});
                     PC          <= {l1_pte[31:20], vpn0, VPC[11:0]};
                     STATE       <= DONE;
-                end 
+                end  
             end
         end
         LFM0: begin

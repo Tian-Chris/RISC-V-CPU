@@ -338,8 +338,10 @@ module cpu_top (
     .clk(clk),
     .RW(dmemRW),
     .funct3(funct3),
-    .wdata(MEMrdata2),
+    .write_data(MEMrdata2),
     .rdata(dmem_out),
+    .WB_csr_reg_en(WB_csr_reg_en),
+    .WB_csr_rresult(WB_csr_rresult),
 
     //MMU
     .csr_satp(csr_satp),
