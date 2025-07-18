@@ -129,5 +129,6 @@ module decoder (
                                   ((IDinstruct & `INST_SH_MASK)    == `INST_SH)     ||
                                   ((IDinstruct & `INST_SW_MASK)    == `INST_SW));
     assign faulting_inst = IDinstruct;
-    assign ecall = ((IDinstruct & `CSR_INST_MASK)   == `ECALL_INST);
+    assign ecall = (^IDinstruct === 1'bx) ? 1'b0 : (IDinstruct == `ECALL_INST);
+
 endmodule

@@ -22,7 +22,8 @@
 module cpu_top (
   input wire clk,
   input wire rst,
-  output wire ecall
+  output wire ecall,
+  output wire [31:0] csr_satpo
   // Debug outputs
   `ifdef DEBUG
     , output wire [31:0] pco, instructiono, alu_outo, immo, rdata1o, rdata2o, Out0, 
@@ -164,6 +165,7 @@ module cpu_top (
     wire [31:0] WB_csr_addr_to_wb;  //csr_data_to_wb -> WB -> csr_wdata 
     
     //debug
+    assign csr_satpo = csr_satp;
     `ifdef DEBUG
       assign pco          = IDPC;
       assign instructiono = IDinstruct; 
@@ -475,7 +477,7 @@ module cpu_top (
   .clk(clk),
   .rst(rst),
   .csr_trapID(trapID),
-  .csr_trapPC(MEMPC),
+  .csr_trapPC(WBPC),
   .faulting_inst(faulting_inst),
   .faulting_va_IMEM(faulting_va_IMEM),
   .faulting_va_DMEM(faulting_va_DMEM),

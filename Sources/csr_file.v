@@ -3,7 +3,8 @@
 module csr_file (
     input  wire        clk,
     input  wire        rst,
-     
+    input  wire [3:0]  hazard_signal,
+         
     //csr write
     input  wire        csr_wen,
     input  wire [11:0] csr_waddr,
@@ -248,6 +249,7 @@ wire trap_taken = (csr_trapID_temp != `EXCEPT_DO_NOTHING);
 
 //trap handling
 always @(*) begin
+    if(hazard_signal != `STALL_MMU) begin
     priv_f     = priv_c;
     mstatus_f  = mstatus_c;
     mstatush_f = mstatush_c;
@@ -386,7 +388,6 @@ always @(*) begin
             endcase
         end
     end
-
     //return
     else if(csr_mret) begin
         `ifdef DEBUG_CSR
@@ -405,6 +406,7 @@ always @(*) begin
         mstatus_f[`MSTATUS_SIE]  = mstatus_c[`MSTATUS_SPIE];
         mstatus_f[`MSTATUS_SPIE] = 1'b1;
         mstatus_f[`MSTATUS_SPP]  = 1'b0;
+    end
     end
 end
 

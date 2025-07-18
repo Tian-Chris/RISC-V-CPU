@@ -54,8 +54,4 @@ module imm_gen( //swap to wire
         endcase
 
     end
-    always @(posedge clk) begin
-        
-        $display("imm_in: %h, imm_sel: %h , imm_out: %h", imm_in, imm_sel, imm_out);
-    end
 endmodule

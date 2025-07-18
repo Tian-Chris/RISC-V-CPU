@@ -4,7 +4,7 @@
 // Module Name: imem
 //////////////////////////////////////////////////////////////////////////////////
 
-module imem #(parameter MEMSIZE = 50000) (
+module imem #(parameter MEMSIZE = 50000000) (
     //IMEM
     input  wire        rst,
     input  wire [3:0]  hazard_signal,

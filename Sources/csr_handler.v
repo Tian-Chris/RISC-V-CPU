@@ -115,6 +115,7 @@ reg  [31:0] csr_rdata_MEM;
 csr_file csr (
     .clk(clk),
     .rst(rst),
+    .hazard_signal(hazard_signal),
     
     //csr write
     .csr_wen(csr_wben),

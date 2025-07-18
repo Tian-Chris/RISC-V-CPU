@@ -69,12 +69,13 @@ module cpu_top_tb;
   
   //for tests
   wire        ecall;
-
+  wire [31:0] csr_satp;
   cpu_top DUT (
     .clk(clk),
     .rst(reset),
     .ecall(ecall),
-
+    .csr_satpo(csr_satp),
+    
     `ifdef DEBUG
       .pco(pc),
       .instructiono(instruction),
@@ -121,6 +122,8 @@ module cpu_top_tb;
   integer i, j;
   integer done;
   integer cycle;
+  integer ecycle;
+  integer ecalled;
     // Clock generation
   initial clk = 0;
   always #10 clk = ~clk;
@@ -137,9 +140,8 @@ module cpu_top_tb;
 
     while (i <= 5 && done == 0) begin
       $display("========== Running Test %0d ==========", i);
-        for (j = 0; j < 9000; j = j + 1) begin
-            DUT.IMEM.unified_mem[j] = 8'h00;
-        end
+      
+      $readmemh("U:/Documents/RISC-V CPU/Risc.sim/sim_1/behav/xsim/test/zero.mem", DUT.IMEM.unified_mem);
       // Load hex memory file
       $readmemh(memfiles[i], DUT.IMEM.unified_mem);
 
@@ -147,27 +149,48 @@ module cpu_top_tb;
       reset = 1;
       #50;
       reset = 0;
-
+      ecalled = 0;
+      ecycle = 0;
       // Run for up to 1000 cycles
       cycle = 0;
-      while (cycle < 2000 && done == 0) begin
+      while (cycle < 80000 && done == 0) begin
         #20;
         cycle = cycle + 1;
-    
-        if (Out17 === 32'd93) begin
-            #40;
-              if (Out10 === 32'd0 && Out3 == 32'b01) begin
-                $display("[TEST %0d PASSED]", i);
-                              $display("");
-    
-              end else begin
-                $display("[TEST %0d FAILED] gp (x3) = %0d (0x%h)", i, Out10, Out10);
-                                $display("");
-    
-              end
-              done = 1;
+        
+        if(!csr_satp[31]) begin
+            if (Out17 === 32'd93) begin
+                #40;
+                  if (Out10 === 32'd0 && Out3 == 32'b01) begin
+                    $display("[TEST %0d PASSED]", i);
+                                  $display("");
+        
+                  end else begin
+                    $display("[TEST %0d FAILED] gp (x3) = %0d (0x%h)", i, Out10, Out10);
+                                    $display("");
+        
+                  end
+                  done = 1;
             end
-      end
+        end
+        else begin
+            if(ecall) begin
+                ecalled = 1;
+                ecycle = cycle;
+                $display("ECALL");
+            end
+            if((cycle == ecycle + 40) && ecalled) begin
+                if(Out10 == 1) begin
+                    $display("[TEST %0d PASSED]", i);
+                    $display("");  
+                end
+                else begin
+                    $display("[TEST %0d FAILED] gp (x3) = %0d (0x%h)", i, Out10, Out10);
+                    $display("");
+                end
+                done = 1;
+            end                    
+        end
+    end
 
       if (done == 0) begin
         $display("[TEST %0d TIMEOUT] No result after 1000 cycles.", i);

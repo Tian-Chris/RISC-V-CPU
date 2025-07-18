@@ -43,7 +43,7 @@ module PC(
     end
     always @(posedge clk)
         begin
-            `ifdef DEBUG
+            `ifdef DEBUG_PC
                 $display("");
                 $display("==========");
                 $display("PC: %h", PC);
