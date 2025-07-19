@@ -203,6 +203,10 @@ module imem #(parameter MEMSIZE = 50000000) (
         uart_fifo_write_en <= 0;
         rdataclked <= rdata;
         if(RW && (hazard_signal != `STALL_MMU)) begin
+//            if(DMEM_Addr <= 32'h80003008 && DMEM_Addr >= 32'h80002ffc)
+//                $display("RW: %h, DMEM: %h, PC: %h, wdata: %h rdata: %h", RW, DMEM_Addr, pc, wdata, rdata);
+//            if(DMEM_Addr >= 32'h80061000 && DMEM_Addr <= 32'h80061008)
+//                $display("RW: %h, DMEM: %h, PC: %h, wdata: %h rdata: %h", RW, DMEM_Addr, pc, wdata, rdata);
             case(DMEM_Addr)
                 `UART_WRITE_ADDR: begin
                     uart_fifo_write_en <= 1;
@@ -225,14 +229,18 @@ module imem #(parameter MEMSIZE = 50000000) (
                         endcase
                     end
                     3'b001: begin // sh
-                        case(DMEM_ram[1])
-                            1'b0: begin
+                        case(DMEM_ram[1:0])
+                            2'b00: begin
                                 unified_mem[word_index][7:0]   <= wdata[7:0];
                                 unified_mem[word_index][15:8]  <= wdata[15:8];
                             end
-                            1'b1: begin
+                            2'b10: begin
                                 unified_mem[word_index][23:16] <= wdata[7:0];
                                 unified_mem[word_index][31:24] <= wdata[15:8];
+                            end
+                            2'b01: begin
+                                unified_mem[word_index][15:8]  <= wdata[7:0];
+                                unified_mem[word_index][23:16] <= wdata[15:8];
                             end
                         endcase
                     end
@@ -274,15 +282,17 @@ always @(*) begin
                         endcase
                     end
                     3'b001: begin // lh (sign-extend)
-                        case(DMEM_ram[1])
-                            1'b0: rdata = {{16{unified_mem[word_index][15]}}, unified_mem[word_index][15:0]};
-                            1'b1: rdata = {{16{unified_mem[word_index][31]}}, unified_mem[word_index][31:16]};
+                        case(DMEM_ram[1:0])
+                            2'b00: rdata = {{16{unified_mem[word_index][15]}}, unified_mem[word_index][15:0]};
+                            2'b10: rdata = {{16{unified_mem[word_index][31]}}, unified_mem[word_index][31:16]};
+                            2'b01: rdata = {{16{unified_mem[word_index][31]}}, unified_mem[word_index][23:8]};
                         endcase   
                     end
                     3'b101: begin // lhu (zero-extend)
-                        case(DMEM_ram[1])
-                            1'b0: rdata = {16'b0, unified_mem[word_index][15:0]};
-                            1'b1: rdata = {16'b0, unified_mem[word_index][31:16]};
+                        case(DMEM_ram[1:0])
+                            2'b00: rdata = {16'b0, unified_mem[word_index][15:0]};
+                            2'b10: rdata = {16'b0, unified_mem[word_index][31:16]};
+                            2'b01: rdata = {16'b0, unified_mem[word_index][23:8]};
                         endcase
                     end
                     3'b010: begin // lw (32-bit word)

@@ -119,9 +119,6 @@ always @(posedge clk) begin
                     PC          <= 32'hDEAD_0005;
                     STATE       <= DONE;
                 end else begin
-                    $display("SuperLeaf");
-                    $display("VPC: %h", VPC);
-                    $display("PC: %h", {l1_pte[31:20], vpn0, VPC[11:0]});
                     PC          <= {l1_pte[31:20], vpn0, VPC[11:0]};
                     STATE       <= DONE;
                 end  

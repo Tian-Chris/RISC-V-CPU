@@ -418,7 +418,9 @@ always @(posedge clk) begin
     if (rst) begin
         csr_branch_signal  <= 1'b0;
         csr_branch_address <= 32'b0;
-    end else begin
+    end 
+    
+    else if(hazard_signal != `STALL_MMU) begin
         csr_branch_signal  <= 1'b0;
         csr_branch_address <= 32'b0;
 
