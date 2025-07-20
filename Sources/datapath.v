@@ -24,6 +24,7 @@ module datapath(
     input wire clk,
     input wire rst,
     input wire [31:0] instruct, //ID
+    input wire [31:0] EXinstCSR,
     input wire brEq,
     input wire brLt,
     input wire [4:0] MEMrd,
@@ -164,25 +165,6 @@ module datapath(
         .clk(clk), .rst(rst), .hazard_signal(hazard_signal), .in_data(WB), .out_data(WB_OUT)
         );
     assign {WB_Reg_WEn, WB_Reg_WBSel} = WB_OUT; 
-    
-    always @(posedge clk) begin
-        `ifdef DEBUG_DATAPATH
-            $display("===========  DATAPATH  ===========");
-            $display("instruct: %h", instruct);
-            $display("ID_jump_early: %b, branch_early: %b, ID_funct3: %b", ID_jump_early, branch_early, ID_funct3);
-            $display("PCSel: %b, ID_Reg_WEn: %b, ID_imm_gen_sel: %b", PCSel, ID_Reg_WEn, ID_imm_gen_sel);
-            $display("ID_Reg_WBSel: %b, EX_Reg_WBSel: %b, MEM_Reg_WBSel: %b, WB_Reg_WBSel: %b", ID_Reg_WBSel, EX_Reg_WBSel, MEM_Reg_WBSel, WB_Reg_WBSel);
-            $display("ID_branch_signed: %b, ID_ALU_BSel: %b, ID_ALU_ASel: %b, ID_ALU_Sel: %b", ID_branch_signed, ID_ALU_BSel, ID_ALU_ASel, ID_ALU_Sel);
-            $display("ID_dmemRW: %b, ID_Reg_WBSel: %b", ID_dmemRW, ID_Reg_WBSel);
-            $display("Reg_WBSelID: %b, Reg_WBSelEX: %b", Reg_WBSelID, Reg_WBSelEX);
-            $display("forwardA: %b, forwardB: %b, forwardDmem: %b", forwardA, forwardB, forwardDmem);
-            $display("forwardBranchA: %b, forwardBranchB: %b", forwardBranchA, forwardBranchB);
-            $display("hazard_signal: %b", hazard_signal);
-            $display("branch_resolved: %b, actual_taken: %b, mispredict: %b", branch_resolved, actual_taken, mispredict);
-            $display("FORWARD DEBUG | rs1_EX=%d rs2_EX=%d | MEMrd=%d | WBrd=%d | MEM_is_branch=%b | forwardA=%b | forwardBranchA=%b", 
-             rs1_EX, rs2_EX, MEMrd, WBrd, MEM_is_branch, forwardA, forwardBranchA);
-        `endif
-    end
 
     // =============
     //    Outputs
@@ -200,7 +182,7 @@ module datapath(
     assign ALU_Sel       = EX_ALU_Sel;
     assign funct3        = MEM_funct3;
     assign dmemRW        = MEM_dmemRW;
-    assign EXmemRead     = (EX_Reg_WBSel == 2'b00); //for data hazard
+    assign EXmemRead     = (EX_Reg_WBSel == 2'b00 || EXinstCSR != 32'b0); //for data hazard
 
     // =============
     //  Forwarding

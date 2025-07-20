@@ -242,7 +242,8 @@ module cpu_top (
         
     //forwarding into dmem
     always @(*) begin
-        wdata = (Reg_WBSel == 2'b00) ? WBdmem : 
+        wdata = (WB_csr_reg_en) ? WB_csr_rresult : 
+                (Reg_WBSel == 2'b00) ? WBdmem : 
                 (Reg_WBSel == 2'b01) ? WBAlu : WBPC + 4;
         DMEMPreClockData = forwardDmem[1] ? MEMAlu : (forwardDmem[0] ? wdata : EXrdata2);
     end
@@ -340,7 +341,7 @@ module cpu_top (
     .clk(clk),
     .RW(dmemRW),
     .funct3(funct3),
-    .write_data(MEMrdata2),
+    .wdata(MEMrdata2),
     .rdata(dmem_out),
     .WB_csr_reg_en(WB_csr_reg_en),
     .WB_csr_rresult(WB_csr_rresult),
@@ -409,6 +410,7 @@ module cpu_top (
     .clk(clk),
     .rst(rst),
     .instruct(IDinstruct),
+    .EXinstCSR(EXinstCSR),
     .brEq(brEq),
     .brLt(brLt),
     .funct3(funct3),
@@ -477,7 +479,7 @@ module cpu_top (
   .clk(clk),
   .rst(rst),
   .csr_trapID(trapID),
-  .csr_trapPC(WBPC),
+  .csr_trapPC(MEMPC),
   .faulting_inst(faulting_inst),
   .faulting_va_IMEM(faulting_va_IMEM),
   .faulting_va_DMEM(faulting_va_DMEM),

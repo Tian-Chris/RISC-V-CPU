@@ -28,7 +28,7 @@ module imem #(parameter MEMSIZE = 50000000) (
     input  wire        clk,
     input  wire        RW, // 1 = write, 0 = read
     input  wire [2:0]  funct3,
-    input  wire [31:0] write_data,
+    input  wire [31:0] wdata,
     output reg  [31:0] rdata,
     input wire WB_csr_reg_en,
     input wire [31:0] WB_csr_rresult,
@@ -192,21 +192,14 @@ module imem #(parameter MEMSIZE = 50000000) (
     //   DMEM
     // ========
     reg  [31:0] rdataclked;
-    wire [31:0] wdata =  (WB_csr_reg_en) ? WB_csr_rresult : write_data;
     always @(posedge clk) begin
-        `ifdef DEBUG_IMEM
-            if(RW == 1) begin
-                $display("===========  IMEM  ===========");
-                $display("[MEM] RW: %b, addr=%h, data=%h, rdata=%h", RW, DMEM_Addr, wdata, rdata);
-            end
-        `endif
+        if(hazard_signal != `STALL_MMU) begin
+            if(DMEM_Addr < 32'h8000BF78 && DMEM_Addr >= 32'h8000BF74)
+                $display("RW: %h, DMEM: %h, PC: %h, wdata: %h rdata: %h", RW, DMEM_Addr, pc, wdata, rdata);
+        end
         uart_fifo_write_en <= 0;
         rdataclked <= rdata;
         if(RW && (hazard_signal != `STALL_MMU)) begin
-//            if(DMEM_Addr <= 32'h80003008 && DMEM_Addr >= 32'h80002ffc)
-//                $display("RW: %h, DMEM: %h, PC: %h, wdata: %h rdata: %h", RW, DMEM_Addr, pc, wdata, rdata);
-//            if(DMEM_Addr >= 32'h80061000 && DMEM_Addr <= 32'h80061008)
-//                $display("RW: %h, DMEM: %h, PC: %h, wdata: %h rdata: %h", RW, DMEM_Addr, pc, wdata, rdata);
             case(DMEM_Addr)
                 `UART_WRITE_ADDR: begin
                     uart_fifo_write_en <= 1;

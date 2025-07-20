@@ -39,7 +39,8 @@ module decoder (
         if (rst || hazard_signal == `FLUSH_EARLY || hazard_signal == `FLUSH_ALL ) begin
             fence_stall_counter <= 0;
             fence_stall_active <= 0;
-        end else begin
+        end 
+        else if(hazard_signal != `STALL_MMU) begin
             if (fence && !fence_stall_active) begin
                 fence_stall_active <= 1;
                 fence_stall_counter <= 8;  // Stall for 8 cycles
