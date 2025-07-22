@@ -60,7 +60,9 @@ module hazard_unit (
     always @(*) begin
         if(rst)
             hazard_signal = `HS_DN;
-        else if(PCSel || csr_branch_signal || trapID != `EXCEPT_DO_NOTHING)
+        else if(trapID != `EXCEPT_DO_NOTHING)
+            hazard_signal = `FLUSH_EXCEPT;
+        else if(PCSel || csr_branch_signal)
             hazard_signal = `FLUSH_ALL;
         else if(stall_IMEM || stall_DMEM)
             hazard_signal = `STALL_MMU; 

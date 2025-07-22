@@ -328,11 +328,15 @@ end
     localparam [3:0] LFMD   = 4'b0101;
     localparam [3:0] STALL  = 4'b1001;
     reg        [3:0] STATE;
+    reg        nextR;
     always @(posedge clk ) begin
-        `ifdef DEBUG_IMEM
-            $display("IMEM => State: %h, virtual_mode_I: %h, virtual_mode_D: %h, LFM_enable_IMEM: %h, LFM_enable_DMEM: %h", STATE, virtual_mode_I, virtual_mode_D, LFM_enable_IMEM, LFM_enable_DMEM);
-            $display("8000af74:, %h", unified_mem[32'h0000af74 >> 2]);
-        `endif
+        nextR <= 0;
+        if(DMEM_ram == 32'h0000af98 || nextR) begin
+            if(DMEM_ram == 32'h0000af98)
+                nextR <= 1;
+            $display("PC: %h, RW: %h, 8000af98:, %h", pc, RW, unified_mem[32'h0000af98 >> 2]);
+            $display("wdata: %h, rdata: %h", wdata, rdata);
+        end
         if(rst)
             STATE <= IDLE;
         case(STATE)

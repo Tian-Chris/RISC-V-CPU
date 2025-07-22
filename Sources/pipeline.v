@@ -12,8 +12,9 @@ module Pipe #(
 );
 
     always @(posedge clk) begin
-        if (rst || (hazard_signal == `FLUSH_ALL && STAGE != `STAGE_WB) || 
-          ((hazard_signal == `FLUSH_EARLY && STAGE == `STAGE_ID) || (hazard_signal == `STALL_EARLY && STAGE == `STAGE_EX))) begin
+        if (rst || hazard_signal == `FLUSH_EXCEPT                  ||
+            (hazard_signal == `FLUSH_ALL && STAGE != `STAGE_WB)    || 
+            ((hazard_signal == `FLUSH_EARLY && STAGE == `STAGE_ID) || (hazard_signal == `STALL_EARLY && STAGE == `STAGE_EX))) begin
             out_data <= RESET_VALUE;
         end 
         else if(hazard_signal == `STALL_MMU) begin

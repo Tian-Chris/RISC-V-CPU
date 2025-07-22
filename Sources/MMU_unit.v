@@ -53,7 +53,7 @@ always @(posedge clk) begin
         $display("===========  MMU  ===========");
         $display("MMU => State: %h, Stall: %h, priv: %h, except: %h, ", STATE, stall, priv, exception);
     `endif
-    if(rst || hazard_signal == `FLUSH_ALL) begin
+    if(rst || hazard_signal == `FLUSH_ALL || hazard_signal == `FLUSH_EXCEPT) begin
         exception   <= 0;
         STATE       <= IDLE;
         PC          <= 32'hDEAD_BEEF;
@@ -63,7 +63,7 @@ always @(posedge clk) begin
     else begin
     case(STATE)
         IDLE: begin
-            if(hazard_signal != `FLUSH_ALL)
+            if(hazard_signal != `FLUSH_ALL && hazard_signal != `FLUSH_EXCEPT)
                 stall       <= 0;
             exception   <= 0;
             MMU_busy    <= 0;
@@ -83,42 +83,33 @@ always @(posedge clk) begin
             end
         end
         READL1: begin
-            if (^l1_pte === 1'bx) begin
+            // Check invalid PTE (valid=0 or W=1 and R=0)
+            if (^l1_pte === 1'bx || l1_pte[`BIT_V] == 0 || (l1_pte[`BIT_R] == 0 && l1_pte[`BIT_W] == 1) ) begin
                 exception <= 1'b1;
                 PC        <= 32'hDEAD_0001;
                 STATE     <= DONE;
             end
-            //check priv
-            // else if(l1_pte[4] == 0 && priv == `PRIV_USER) begin
-            //     exception   <= 1;
-            //     PC          <= 32'hDEAD_0002;
-            //     STATE       <= DONE;
-            // end 
-            else if(l1_pte[4] == 1 && priv == `PRIV_SUPER && sstatus_sum == 0) begin
-                exception   <= 1;
-                PC          <= 32'hDEAD_0003;
-                STATE       <= DONE;
-            end
-            // check l1 validity
-            else if (l1_pte[0] == 0) begin
-                exception   <= 1'b1;
-                PC          <= 32'hDEAD_0004;
-                STATE       <= DONE;
-            end 
-            else if ((l1_pte[1] == 0) && (l1_pte[2] == 0)) begin //if neither read and write or exec its not a superleaf
+            // If Nonleaf PTE then walk next level
+            else if ((l1_pte[`BIT_R] == 0) && (l1_pte[`BIT_W] == 0) && (l1_pte[`BIT_X] == 0)) begin
                 LFM_enable  <= 1;
-                LFM         <= l0_addr; //load from memory
+                LFM         <= l0_addr;
                 STATE       <= LFM0;
             end
+            // If Leaf then check U A and D bits
             else begin
-                if ( (access_is_inst && (l1_pte[3] == 0)) ||
-                    (access_is_load  && (l1_pte[1] == 0))  ||
-                    (access_is_store && (l1_pte[2] == 0 || l1_pte[7] == 0)) ) begin //checks dirty bit as well
+                if ((l1_pte[`BIT_U] == 0 && priv == `PRIV_USER) || 
+                    (l1_pte[`BIT_U] == 1 && priv == `PRIV_SUPER && sstatus_sum == 0) ||
+                    //(l1_pte[`BIT_A] == 0)                       ||
+                    (access_is_inst && (l1_pte[`BIT_X] == 0))   ||
+                    (access_is_load  && (l1_pte[`BIT_R] == 0))  
+                    //|| (access_is_store && (l1_pte[`BIT_W] == 0 || l1_pte[`BIT_D] == 0))
+                    ) begin
                     // if dirty bit = 0 except -> trap -> os -> sets db to 1
                     exception   <= 1'b1;
                     PC          <= 32'hDEAD_0005;
                     STATE       <= DONE;
-                end else begin
+                end 
+                else begin
                     PC          <= {l1_pte[31:20], vpn0, VPC[11:0]};
                     STATE       <= DONE;
                 end  
@@ -132,35 +123,20 @@ always @(posedge clk) begin
             end
         end
         READL0: begin
-            if (^l0_pte === 1'bx) begin
+            if ((^l0_pte === 1'bx)                                               || 
+                (l0_pte[`BIT_V] == 0)                                            || 
+                //(l0_pte[`BIT_A] == 0)                                            ||
+                (l0_pte[`BIT_R] == 0 && l0_pte[`BIT_W] == 1)                     ||
+                (l0_pte[`BIT_U] == 0 && priv == `PRIV_USER)                      ||
+                (l0_pte[`BIT_U] == 1 && priv == `PRIV_SUPER && sstatus_sum == 0) || 
+                (access_is_inst  && (l0_pte[`BIT_X] == 0))                       ||
+                (access_is_load  && (l0_pte[`BIT_R] == 0))                       
+                //|| (access_is_store && (l0_pte[`BIT_W] == 0 || l0_pte[`BIT_D] == 0))
+                ) begin
                 exception <= 1'b1;
-                PC        <= 32'hDEAD_BEEF;
+                PC        <= 32'hDEAD_0001;
                 STATE     <= DONE;
             end
-            else if(l0_pte[4] == 0 && priv == `PRIV_USER) begin
-                exception   <= 1;
-                PC          <= 32'hDEAD_BEEF;
-                STATE       <= DONE;
-            end else if(l0_pte[4] == 1 && priv == `PRIV_SUPER && sstatus_sum == 0) begin
-                exception   <= 1;
-                PC          <= 32'hDEAD_BEEF;
-                STATE       <= DONE;
-            end
-
-            //check l0 valididty
-            if (l0_pte[0] == 0) begin
-                exception   <= 1;
-                PC          <= 32'hDEAD_BEEF;
-                STATE       <= DONE;
-            end 
-            else if ( (access_is_inst && (l0_pte[3] == 0)) ||
-                (access_is_load  && (l0_pte[1] == 0))       ||
-                (access_is_store && (l0_pte[2] == 0 || l0_pte[7] == 0)) ) begin //checks dirty bit as well
-                // if dirty bit = 0 except -> trap -> os -> sets db to 1
-                exception   <= 1;
-                PC          <= 32'hDEAD_BEEF;
-                STATE       <= DONE;
-            end 
             else begin
                 PC          <= {l0_pte[31:10], VPC[11:0]};
                 STATE       <= DONE;

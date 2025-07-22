@@ -203,7 +203,7 @@ assign csr_addr_to_wb = csr_raddr_clocked;
 assign csr_rresult    = csr_rdata_clocked;
 
 always @(*) begin
-    if(hazard_signal == `FLUSH_ALL) begin
+    if(hazard_signal == `FLUSH_ALL || hazard_signal == `FLUSH_EXCEPT) begin
         csr_addr_EX <= 0;
         csr_rdata_EX <= 0;
     end
@@ -213,7 +213,7 @@ always @(*) begin
     end
 end
 always @(posedge clk) begin
-    if(hazard_signal == `FLUSH_ALL || rst) begin
+    if(hazard_signal == `FLUSH_ALL || hazard_signal == `FLUSH_EXCEPT || rst) begin
         csr_addr_MEM <= 0;
         csr_rdata_MEM <= 0;
     end

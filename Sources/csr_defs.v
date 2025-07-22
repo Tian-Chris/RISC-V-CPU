@@ -168,3 +168,16 @@
 `define CLINT_MTIMECMPH_ADDR     32'h02004004
 `define CLINT_MTIME_ADDR         32'h0200BFF8
 `define CLINT_MTIMEH_ADDR        32'h0200BFFC
+
+// ============
+//   MMU Bits
+// ============
+
+`define BIT_D   7
+`define BIT_A   6
+`define BIT_G   5
+`define BIT_U   4
+`define BIT_X   3
+`define BIT_W   2
+`define BIT_R   1
+`define BIT_V   0
