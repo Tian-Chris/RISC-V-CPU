@@ -20,10 +20,12 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 module cpu_top (
-  input wire clk,
-  input wire rst,
-  output wire ecall,
-  output wire [31:0] csr_satpo
+  input  wire        clk,
+  input  wire        rst,
+  output wire        ecall,
+  output wire [31:0] csr_satpo,
+  input  wire        rx_line,
+  output wire        tx_line
   // Debug outputs
   `ifdef DEBUG
     , output wire [31:0] pco, instructiono, alu_outo, immo, rdata1o, rdata2o, Out0, 
@@ -317,7 +319,7 @@ module cpu_top (
   );
 
   // Unified Memory
-  imem IMEM (
+  MEM_unit MEM (
     //IMEM
     .rst(rst),
     .hazard_signal(hazard_signal),
@@ -354,6 +356,8 @@ module cpu_top (
     .mtip(mtip),
     .msip(msip),
     .meip(meip),
+    .rx_line(rx_line),
+    .tx_line(tx_line),
 
     //IMEM
     .priv_IMEM(priv_ID),

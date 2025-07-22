@@ -203,13 +203,9 @@ always @(posedge clk) begin
                 read_baud_cnt <= read_baud_cnt + 1;
                 if(read_baud_cnt == BAUD_TICKS - 1) begin
                     read_baud_cnt <= 0;
-                     $display("HERE1");
-                    if(rx_line != 1)
-                        $display("INVALID RX BYTE");
                 end
             end
             READ_WRITE: begin
-                $display("HERE2");
                 read_fifo_write_en <= 1;
                 read_fifo_data     <= read_storage;
             end
@@ -233,7 +229,6 @@ always @(*) begin
         READ_STOP:
             if (read_baud_cnt == BAUD_TICKS - 1) begin
                 READ_next_state = READ_WRITE;
-                 $display("HERE3");
                 end
         READ_WRITE:
             READ_next_state = READ_IDLE;

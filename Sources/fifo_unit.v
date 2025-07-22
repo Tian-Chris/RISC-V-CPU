@@ -41,12 +41,7 @@ module fifo_unit #( parameter DEPTH = 32, parameter WIDTH = 8 ) (
     assign fifo_full  = (count >= DEPTH - 3); // conservative
     assign fifo_empty   = (count == 0);
 
-    always @(posedge clk) begin
-        if (fifo_write_en)
-            $display("writeData: %h", fifo_write_data);
-        if (fifo_out_valid)
-            $display("fifoOut: %h", fifo_output);
-        
+    always @(posedge clk) begin        
         prev_read_en <= fifo_read_en;
         if (rst) begin
             wr_ptr         <= 0;
