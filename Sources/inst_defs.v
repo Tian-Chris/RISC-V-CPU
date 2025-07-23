@@ -134,6 +134,18 @@
 `define INST_IFENCE_MASK 32'h707f
 
 // ==================
+//   M Extension
+// ==================
+`define INST_MUL        32'h2000033
+`define INST_MUL_MASK   32'hfe00707f
+
+// ==================
+//   A Extension
+// ==================
+`define INST_AMOSWAP_W       32'h0800202f
+`define INST_AMOSWAP_W_MASK  32'hf800707f
+
+// ==================
 //   Hazard Signals
 // ==================
 
@@ -143,6 +155,8 @@
 `define STALL_EARLY         4'b0011
 `define STALL_MMU           4'b0100
 `define FLUSH_EXCEPT        4'b0101
+`define STALL_SWAP          4'b0110
+
 
 // ==========
 //   Stages

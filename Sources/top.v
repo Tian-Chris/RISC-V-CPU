@@ -133,6 +133,7 @@ module cpu_top (
     wire        access_is_load_EX;
     wire        access_is_store_EX;
     reg  [1:0]  priv_EX;
+    wire        swap;
 
     //MEM Stage Reg
     wire [31:0] MEMinstruct;
@@ -319,7 +320,7 @@ module cpu_top (
   );
 
   // Unified Memory
-  MEM_unit MEM (
+  MEM_unit MEM_UNIT (
     //IMEM
     .rst(rst),
     .hazard_signal(hazard_signal),
@@ -383,7 +384,8 @@ module cpu_top (
     .load_fault_mmu_DMEM(load_fault_mmu_DMEM),
     .store_fault_mmu_DMEM(store_fault_mmu_DMEM),
     .faulting_va_DMEM(faulting_va_DMEM),
-    .stall_DMEM(stall_DMEM)
+    .stall_DMEM(stall_DMEM),
+    .swap(swap)
     );
 
   imm_gen IMM (
@@ -527,6 +529,7 @@ module cpu_top (
     .csr_branch_signal(EX_csr_branch_signal),
     .PCSel(PCSel),
     .jump_taken(jump_taken),
+    .swap(swap),
 
     .stall_IMEM(stall_IMEM),
     .stall_DMEM(stall_DMEM),

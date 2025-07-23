@@ -63,7 +63,7 @@ module PC(
                     else
                         PC <= PC_ALU_input;
                 end
-                else if(hazard_signal != `STALL_EARLY && hazard_signal != `STALL_MMU) begin
+                else if(hazard_signal != `STALL_EARLY && hazard_signal != `STALL_MMU && hazard_signal != `STALL_SWAP) begin
                     if(jump_taken != 0)
                         PC <= PC + PC_Jump - 4;
                     else

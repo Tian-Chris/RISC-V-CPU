@@ -18,6 +18,7 @@ module decoder (
     output wire        access_is_load_ID,
     output wire        access_is_store_ID,
     output wire [31:0] faulting_inst,
+    output wire        swap,
     output wire        ecall
 );
     `include "inst_defs.v"
@@ -111,8 +112,10 @@ module decoder (
         
         ((IDinstruct & `INST_FENCE_MASK) == `INST_FENCE)  ||
         ((IDinstruct & `INST_SFENCE_MASK)== `INST_SFENCE) ||
-        ((IDinstruct & `INST_IFENCE_MASK)== `INST_IFENCE)
-        );
+        ((IDinstruct & `INST_IFENCE_MASK)== `INST_IFENCE) ||
+        ((IDinstruct & `INST_MUL_MASK)   == `INST_MUL)    ||
+        ((IDinstruct & `INST_AMOSWAP_W_MASK)  == `INST_AMOSWAP_W)  
+        ); 
     
     //fence handling
     assign fence = 
@@ -132,4 +135,6 @@ module decoder (
     assign faulting_inst = IDinstruct;
     assign ecall = (^IDinstruct === 1'bx) ? 1'b0 : (IDinstruct == `ECALL_INST);
 
+    //for swap
+    assign swap = (IDinstruct & `INST_AMOSWAP_W_MASK)  == `INST_AMOSWAP_W;
 endmodule

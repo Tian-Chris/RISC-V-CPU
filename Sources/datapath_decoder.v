@@ -381,5 +381,20 @@ module datapath_decoder(
             uses_reg    = 2'b01;
             Reg_WEn     = 1'b0;
         end
+
+        //M Extension
+        else if ((instruct & `INST_MUL_MASK)   == `INST_MUL) begin
+            uses_reg    = 2'b11;
+            Reg_WEn     = 1'b1;
+            Reg_WBSel   = 2'b01;
+            ALU_Sel     = 4'b1100;
+        end
+
+        else if((instruct & `INST_AMOSWAP_W_MASK)   == `INST_AMOSWAP_W) begin
+            uses_reg    = 2'b01;
+            Reg_WEn     = 1'b1;
+            Reg_WBSel   = 2'b00;
+            ALU_Sel     = 4'b1010;
+        end
     end
 endmodule

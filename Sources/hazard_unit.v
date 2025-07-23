@@ -28,6 +28,7 @@ module hazard_unit (
     input  wire [4:0] EXrd,
     input  wire EXmemRead,
     input  wire csr_branch_signal,
+    input  wire swap,
 
     //flush
     input  wire PCSel,
@@ -56,6 +57,8 @@ module hazard_unit (
         `define DEBUG_HAZARD
         `define DEBUG_EXCEPT
     `endif
+    reg swapped;
+
     //Stall
     always @(*) begin
         if(rst)
@@ -66,7 +69,9 @@ module hazard_unit (
             hazard_signal = `FLUSH_ALL;
         else if(stall_IMEM || stall_DMEM)
             hazard_signal = `STALL_MMU; 
-        else if (EXmemRead && (EXrd != 0) && ((EXrd == IDrs1) || (EXrd == IDrs2)))
+        else if(swap)
+            hazard_signal = `STALL_SWAP;
+        else if ((EXmemRead && (EXrd != 0) && ((EXrd == IDrs1) || (EXrd == IDrs2)) && !swapped))
             hazard_signal = `STALL_EARLY;
         else if(jump_taken)
             hazard_signal = `FLUSH_EARLY;
@@ -78,7 +83,7 @@ module hazard_unit (
         `endif
     end
 
-    //Exceptions 
+    //Exceptions
     wire PC_ID;
     wire PC_EX;
     wire PC_MEM;
@@ -123,6 +128,7 @@ module hazard_unit (
 
 
     always @(posedge clk) begin
+        swapped <= swap;
         `ifdef DEBUG_EXCEPT
             $display("=========== EXCEPT ===========");
             $display("trapID: %h", trapID);

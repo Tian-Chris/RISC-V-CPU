@@ -66,10 +66,12 @@ module MEM_unit #(parameter MEMSIZE = 50000000) (
     //uart
     output wire        meip,
     input  wire        rx_line,
-    output wire        tx_line
-
+    output wire        tx_line,
+    output wire        swap
     );
+
     `include "csr_defs.v"
+    `include "inst_defs.v"
     `ifdef DEBUG_ALL
         `define DEBUG_IMEM
     `endif
@@ -120,6 +122,10 @@ module MEM_unit #(parameter MEMSIZE = 50000000) (
             inst <= unified_mem[IMEM_ram[31:2]];
             IDPC <= pc;
         end
+        if(swap == 1) begin
+            inst <= {7'b0000000, rs2, rs1, 15'b000000000100011};
+            IDPC <= 32'h12345678;
+        end
     end
     always @(*) begin
         rd   = inst[11:7];
@@ -146,7 +152,8 @@ module MEM_unit #(parameter MEMSIZE = 50000000) (
         .access_is_load_ID(access_is_load_ID),
         .access_is_store_ID(access_is_store_ID),
         .faulting_inst(faulting_inst),
-        .ecall(ecall)
+        .ecall(ecall),
+        .swap(swap)
     );
 
     // ========
